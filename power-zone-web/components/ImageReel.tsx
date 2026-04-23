@@ -7,19 +7,27 @@ import type { Product } from "@/data/products";
 type Props = {
   products: Product[];
   side: "left" | "right";
+  /**
+   * When true, the stack is rendered in reverse (last product at the top).
+   * Use with an opposite-direction GSAP tween so the new image slides in
+   * from above instead of below — see ProductShowcase.
+   */
+  reversed?: boolean;
 };
 
 const ImageReel = forwardRef<HTMLDivElement, Props>(function ImageReel(
-  { products, side },
+  { products, side, reversed = false },
   ref,
 ) {
+  const ordered = reversed ? [...products].slice().reverse() : products;
+
   return (
     <div
       ref={ref}
       className="will-change-transform"
-      style={{ height: `${products.length * 100}%` }}
+      style={{ height: `${ordered.length * 100}%` }}
     >
-      {products.map((product, i) => {
+      {ordered.map((product, i) => {
         const src = side === "left" ? product.leftImage : product.rightImage;
         return (
           <div

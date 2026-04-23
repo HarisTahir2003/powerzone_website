@@ -42,3 +42,14 @@ html.lenis body {
 .lenis.lenis-smooth iframe {
   pointer-events: none;
 }
+
+/* Hide the native scrollbar — Lenis drives the scroll smoothly underneath. */
+html,
+body {
+  scrollbar-width: none;         /* Firefox */
+  -ms-overflow-style: none;      /* IE / old Edge */
+}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;                 /* Chromium / Safari */
+}

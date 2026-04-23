@@ -9,18 +9,29 @@
  * TIMING KNOBS — tweak these to retune the feel. All values are in "vh units
  * of scroll" (scrub maps them 1:1 to actual scroll distance).
  *
- *   REST_VH          = 100   // scroll distance a product sits still
- *   TRANSITION_VH    = 20    // scroll distance of the hand-off between products
- *   STAGGER_FRACTION = 0.15  // right reel lag as a fraction of TRANSITION_VH
- *                            // (0.15 ≈ 80–150ms of feel at typical scroll speeds)
- *   CARD_VH          = 40    // must match block height in ProductCard.tsx
+ *   REST_VH          = 0     // dwell time between transitions (0 = chain them)
+ *   TRANSITION_VH    = 200   // scroll distance of one product-to-product swap
+ *   STAGGER_FRACTION = 0     // reel stagger (0 = reels move in lock-step)
+ *   CARD_VH          = 14    // MUST match block height in ProductCard.tsx
+ *
+ * Directions:
+ *   left reel  : translates UP       (new image slides in from below)
+ *   right reel : translates DOWN     (reversed stack; new image slides in from above)
+ *   card stack : translates UP       (in sync with left reel)
  *
  * Easings:
- *   left reel  : power2.inOut   (symmetric, anchors the motion)
- *   right reel : power2.out     (lags into place — asymmetry with left)
- *   card stack : power2.inOut   (matches the left reel feel)
+ *   left reel  : power2.inOut   (symmetric — both reels must match for sync)
+ *   right reel : power2.inOut   (same as left, no asymmetry)
+ *   card stack : power2.inOut
  *   text (out) : power2.in      (accelerates off-screen)
  *   text (in)  : power2.out     (decelerates into place)
+ *
+ * Scroll behaviour:
+ *   - `scrub: 0.5`  → near-immediate response with slight smoothing.
+ *   - `snap` with `directional: false` → once the user stops scrolling, the
+ *      timeline eases to the nearest transition boundary. Past the halfway
+ *      point it completes the swap; under halfway it returns to the prior
+ *      product.
  * -------------------------------------------------------------------------- */
 
 import { useLayoutEffect, useRef } from "react";
@@ -31,10 +42,10 @@ import { products } from "@/data/products";
 import ImageReel from "./ImageReel";
 import ProductCard from "./ProductCard";
 
-const REST_VH = 100;
-const TRANSITION_VH = 20;
-const STAGGER_FRACTION = 0.15;
-const CARD_VH = 40;
+const REST_VH = 0;
+const TRANSITION_VH = 200;
+const STAGGER_FRACTION = 0;
+const CARD_VH = 14;
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
@@ -52,28 +63,34 @@ export default function ProductShowcase() {
 
   useLayoutEffect(() => {
     const ctx = gsap.context(() => {
-      const totalVH =
-        products.length * REST_VH + (products.length - 1) * TRANSITION_VH;
+      const N = products.length;
+      const totalVH = N * REST_VH + (N - 1) * TRANSITION_VH;
       const staggerOffset = TRANSITION_VH * STAGGER_FRACTION;
+
+      // Right reel is rendered in reverse order — position it so the LAST image
+      // (product 0, since it's flipped) is visible initially. As the timeline
+      // progresses, this translates DOWN toward 0.
+      gsap.set(rightReelRef.current, { y: `-${(N - 1) * 100}vh` });
 
       const tl = gsap.timeline({
         defaults: { ease: "power2.inOut" },
       });
 
-      let pos = REST_VH; // first transition starts after initial rest
+      let pos = REST_VH; // first transition begins after the (optional) initial rest
 
-      for (let i = 0; i < products.length - 1; i++) {
-        const reelTarget = `-${(i + 1) * 100}vh`;
+      for (let i = 0; i < N - 1; i++) {
+        const leftTarget = `-${(i + 1) * 100}vh`;
+        const rightTarget = `-${(N - 2 - i) * 100}vh`; // moves DOWN, toward 0
         const cardTarget = `-${(i + 1) * CARD_VH}vh`;
 
         tl.to(
           leftReelRef.current,
-          { y: reelTarget, duration: TRANSITION_VH, ease: "power2.inOut" },
+          { y: leftTarget, duration: TRANSITION_VH, ease: "power2.inOut" },
           pos,
         );
         tl.to(
           rightReelRef.current,
-          { y: reelTarget, duration: TRANSITION_VH, ease: "power2.out" },
+          { y: rightTarget, duration: TRANSITION_VH, ease: "power2.inOut" },
           pos + staggerOffset,
         );
         tl.to(
@@ -113,7 +130,7 @@ export default function ProductShowcase() {
         pos += TRANSITION_VH + REST_VH;
       }
 
-      // Pad the timeline to the full scroll length so scrub mapping is 1:1
+      // Pad timeline so scrub maps 1:1 to the full scroll length
       tl.to({}, { duration: 0 }, totalVH);
 
       ScrollTrigger.create({
@@ -121,9 +138,16 @@ export default function ProductShowcase() {
         start: "top top",
         end: () => `+=${(totalVH * window.innerHeight) / 100}`,
         pin: true,
-        scrub: 1,
+        scrub: 0.5,
         animation: tl,
         invalidateOnRefresh: true,
+        snap: {
+          snapTo: 1 / (N - 1),
+          duration: { min: 0.25, max: 0.6 },
+          ease: "power2.inOut",
+          delay: 0.05,
+          directional: false,
+        },
       });
     }, containerRef);
 
@@ -132,18 +156,20 @@ export default function ProductShowcase() {
 
   return (
     <section ref={containerRef} className="relative">
-      <div
-        ref={pinRef}
-        className="relative h-screen w-full overflow-hidden"
-      >
-        {/* Left reel — full viewport on mobile, 50% on desktop */}
+      <div ref={pinRef} className="relative h-screen w-full overflow-hidden">
+        {/* Left reel — full viewport on mobile, 50% on desktop; natural order, translates UP */}
         <div className="absolute inset-y-0 left-0 w-full md:w-1/2 overflow-hidden">
           <ImageReel ref={leftReelRef} products={products} side="left" />
         </div>
 
-        {/* Right reel — hidden below md; the left reel takes the full width */}
+        {/* Right reel — hidden below md; REVERSED stack, translates DOWN (initial y set in timeline) */}
         <div className="hidden md:block absolute inset-y-0 right-0 w-1/2 overflow-hidden">
-          <ImageReel ref={rightReelRef} products={products} side="right" />
+          <ImageReel
+            ref={rightReelRef}
+            products={products}
+            side="right"
+            reversed
+          />
         </div>
 
         {/* Pinned center card */}
