@@ -20,9 +20,9 @@ const SpecReel = forwardRef<HTMLDivElement, Props>(function SpecReel(
       className="will-change-transform"
       style={{ height: `${ordered.length * 100}%` }}
     >
-      {ordered.map((product) => (
+      {ordered.map((product, i) => (
         <section
-          key={product.id}
+          key={`${product.slug}-${i}`}
           className="relative h-screen w-full overflow-hidden"
           style={{ backgroundColor: product.rightColor }}
         >

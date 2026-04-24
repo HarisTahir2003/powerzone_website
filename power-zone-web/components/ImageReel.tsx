@@ -23,7 +23,7 @@ const ImageReel = forwardRef<HTMLDivElement, Props>(function ImageReel(
     >
       {ordered.map((product, i) => (
         <div
-          key={product.id}
+          key={`${product.slug}-${i}`}
           className="relative h-screen w-full overflow-hidden"
           style={{ backgroundColor: product.leftColor }}
         >

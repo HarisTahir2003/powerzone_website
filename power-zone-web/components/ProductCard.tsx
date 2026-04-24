@@ -83,7 +83,7 @@ export default function ProductCard({ products, stackRef, textRefs }: Props) {
       >
         {products.map((product, i) => (
           <section
-            key={product.id}
+            key={`${product.slug}-${i}`}
             className={`relative flex ${BLOCK_H_CLASS} w-full items-end`}
             style={{ backgroundColor: product.accentColor }}
           >

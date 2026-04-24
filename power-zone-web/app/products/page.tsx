@@ -2,19 +2,12 @@ import Image from "next/image";
 import Link from "next/link";
 import GrainOverlay from "@/components/GrainOverlay";
 import ProductShowcase from "@/components/ProductShowcase";
+import ProductNav from "@/components/ProductNav";
 
 export const metadata = {
   title: "Products — Power Zone",
   description: "The Power Zone generator lineup.",
 };
-
-const NAV_LINKS = [
-  { label: "PRODUCTS", href: "/products" },
-  { label: "SOLUTIONS", href: "/solutions" },
-  { label: "ABOUT", href: "/about" },
-  { label: "SUPPORT", href: "/support" },
-  { label: "CONTACT", href: "/contact" },
-];
 
 export default function ProductsPage() {
   return (
@@ -40,27 +33,8 @@ export default function ProductsPage() {
         />
       </Link>
 
-      {/* Top-right nav */}
-      <nav className="fixed right-6 top-6 z-[70] hidden md:flex items-center gap-5 text-[10px] font-bold tracking-[0.16em] text-white mix-blend-difference">
-        {NAV_LINKS.map((link) => (
-          <Link
-            key={link.label}
-            href={link.href}
-            className="transition-opacity hover:opacity-70"
-          >
-            {link.label}
-          </Link>
-        ))}
-        <span className="mx-2 h-3 w-px bg-white/40" aria-hidden />
-        <a
-          href="https://instagram.com/"
-          target="_blank"
-          rel="noreferrer"
-          className="transition-opacity hover:opacity-70"
-        >
-          INSTAGRAM
-        </a>
-      </nav>
+      {/* Top-right nav — generator quick-links */}
+      <ProductNav />
 
       <ProductShowcase />
     </div>
