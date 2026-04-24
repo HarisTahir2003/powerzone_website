@@ -4,34 +4,48 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 
-type DotColor = 'red' | 'yellow' | 'green';
-
-const BOOT_LINES = ['POWER GRID', 'FUEL SYSTEM', 'IGNITION'] as const;
-
-const DOT_PALETTE: Record<DotColor, { bg: string; glow: string }> = {
-  red: { bg: '#ff3b3b', glow: 'rgba(255, 59, 59, 0.55)' },
-  yellow: { bg: '#ffd23b', glow: 'rgba(255, 210, 59, 0.65)' },
-  green: { bg: '#3bff7a', glow: 'rgba(59, 255, 122, 0.70)' },
-};
-
-const BOOT_SCHEDULE: Array<[index: number, color: DotColor, atMs: number]> = [
-  [0, 'yellow', 350],
-  [0, 'green', 1100],
-  [1, 'yellow', 1450],
-  [1, 'green', 2200],
-  [2, 'yellow', 2550],
-  [2, 'green', 3300],
-];
-const BOOT_HANDOFF_MS = 4100;
-
 const LOGO_ON_DARK = '/images/logo-on-dark.png';
+const BUTTON_IMG = '/images/button.png';
+const BREAKER_SFX = '/breaker-on.mp3';
+const DIESEL_SFX = '/diesel-start.mp3';
+const IGNITION_TO_VIDEO_MS = 2600;
+const DIESEL_DELAY_MS = 250;
+const LIGHTS_ON_AT_S = 8.0;
+const DIESEL_FADE_MS = 600;
+
+const COLOR_RED = '#ff3b30';
+const COLOR_AMBER = '#ffbf3a';
+const COLOR_GREEN = '#3bd67a';
+const COLOR_MUTED = 'rgba(255, 255, 255, 0.28)';
+
+const READOUT_TARGET = { power: 412, voltage: 415, ampere: 716 };
+const READOUT_RAMP_MS = 1800;
+const BACKUP_ONLINE_DELAY_MS = 1000;
+const AUTOSTART_COMPLETE_DELAY_MS = 1600;
+
+type StatusLineState = { state: string; color: string };
 
 export default function Home() {
+  const [hasPressed, setHasPressed] = useState(false);
   const [hasLitUp, setHasLitUp] = useState(false);
-  const [isBooting, setIsBooting] = useState(false);
-  const [dotColors, setDotColors] = useState<DotColor[]>(['red', 'red', 'red']);
   const [videoEnded, setVideoEnded] = useState(false);
+  const [readings, setReadings] = useState({
+    power: 0,
+    voltage: 0,
+    ampere: 0,
+  });
+  const [backupStatus, setBackupStatus] = useState<StatusLineState>({
+    state: 'STANDBY',
+    color: COLOR_AMBER,
+  });
+  const [autoStartStatus, setAutoStartStatus] = useState<StatusLineState>({
+    state: 'READY',
+    color: COLOR_AMBER,
+  });
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const breakerAudioRef = useRef<HTMLAudioElement | null>(null);
+  const dieselAudioRef = useRef<HTMLAudioElement | null>(null);
+  const dieselStoppedRef = useRef(false);
   const timersRef = useRef<number[]>([]);
 
   useEffect(() => {
@@ -50,28 +64,103 @@ export default function Home() {
   }, [hasLitUp]);
 
   useEffect(() => {
+    const breaker = new Audio(BREAKER_SFX);
+    const diesel = new Audio(DIESEL_SFX);
+    breaker.preload = 'auto';
+    diesel.preload = 'auto';
+    breakerAudioRef.current = breaker;
+    dieselAudioRef.current = diesel;
+
+    return () => {
+      breaker.pause();
+      diesel.pause();
+    };
+  }, []);
+
+  useEffect(() => {
     const timers = timersRef.current;
     return () => {
       timers.forEach((t) => window.clearTimeout(t));
     };
   }, []);
 
-  const handleLightUp = () => {
-    if (isBooting) return;
-    setIsBooting(true);
+  useEffect(() => {
+    if (!hasPressed) return;
+    const startTime = performance.now();
+    let rafId = 0;
+    const step = (now: number) => {
+      const t = Math.min(1, (now - startTime) / READOUT_RAMP_MS);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setReadings({
+        power: Math.round(READOUT_TARGET.power * eased),
+        voltage: Math.round(READOUT_TARGET.voltage * eased),
+        ampere: Math.round(READOUT_TARGET.ampere * eased),
+      });
+      if (t < 1) rafId = requestAnimationFrame(step);
+    };
+    rafId = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(rafId);
+  }, [hasPressed]);
 
-    BOOT_SCHEDULE.forEach(([index, color, atMs]) => {
-      const t = window.setTimeout(() => {
-        setDotColors((prev) => {
-          const next = [...prev];
-          next[index] = color;
-          return next;
-        });
-      }, atMs);
-      timersRef.current.push(t);
+  const fadeOutDiesel = () => {
+    const audio = dieselAudioRef.current;
+    if (!audio) return;
+    const startVol = audio.volume;
+    const steps = 20;
+    const stepMs = DIESEL_FADE_MS / steps;
+    let i = 0;
+    const id = window.setInterval(() => {
+      i++;
+      audio.volume = Math.max(0, startVol * (1 - i / steps));
+      if (i >= steps) {
+        window.clearInterval(id);
+        audio.pause();
+        audio.currentTime = 0;
+        audio.volume = startVol;
+      }
+    }, stepMs);
+    timersRef.current.push(id);
+  };
+
+  const handleVideoTimeUpdate = () => {
+    if (dieselStoppedRef.current) return;
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.currentTime >= LIGHTS_ON_AT_S) {
+      dieselStoppedRef.current = true;
+      fadeOutDiesel();
+    }
+  };
+
+  const handleIgnition = () => {
+    if (hasPressed) return;
+    setHasPressed(true);
+
+    breakerAudioRef.current?.play().catch(() => {
+      console.warn('PowerZone intro: breaker sound blocked by browser.');
     });
 
-    const handoff = window.setTimeout(() => setHasLitUp(true), BOOT_HANDOFF_MS);
+    const dieselTimer = window.setTimeout(() => {
+      dieselAudioRef.current?.play().catch(() => {
+        console.warn('PowerZone intro: diesel sound blocked by browser.');
+      });
+    }, DIESEL_DELAY_MS);
+    timersRef.current.push(dieselTimer);
+
+    const backupTimer = window.setTimeout(() => {
+      setBackupStatus({ state: 'ONLINE', color: COLOR_GREEN });
+    }, BACKUP_ONLINE_DELAY_MS);
+    timersRef.current.push(backupTimer);
+
+    const autoStartTimer = window.setTimeout(() => {
+      setAutoStartStatus({ state: 'COMPLETE', color: COLOR_GREEN });
+    }, AUTOSTART_COMPLETE_DELAY_MS);
+    timersRef.current.push(autoStartTimer);
+
+    const handoff = window.setTimeout(
+      () => setHasLitUp(true),
+      IGNITION_TO_VIDEO_MS,
+    );
     timersRef.current.push(handoff);
   };
 
@@ -85,7 +174,7 @@ export default function Home() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.8, ease: 'easeOut' }}
-            className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-10 bg-black"
+            className="absolute inset-0 z-20 bg-black"
           >
             <div
               aria-hidden
@@ -96,60 +185,66 @@ export default function Home() {
               }}
             />
 
+            {/* Top-left logo (hidden until ignition is pressed) */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <motion.img
               src={LOGO_ON_DARK}
               alt="PowerZone — Engineering & Services"
               draggable={false}
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 1.2, ease: 'easeOut' }}
-              className="relative z-10 h-28 w-auto select-none"
+              initial={false}
+              animate={{ opacity: hasPressed ? 1 : 0 }}
+              transition={{ duration: 1.5, ease: 'easeOut' }}
+              className="pointer-events-none absolute left-10 top-10 z-30 h-32 w-auto select-none"
             />
 
-            <motion.button
-              type="button"
-              onClick={handleLightUp}
-              disabled={isBooting}
-              animate={{ opacity: isBooting ? 0 : 1 }}
-              transition={{ duration: 0.4, ease: 'easeOut' }}
-              className="
-                relative z-10 cursor-pointer
-                px-12 py-4
-                text-sm font-medium uppercase tracking-[0.3em]
-                text-white
-                border border-white/40 bg-transparent
-                transition-colors duration-500
-                hover:bg-white/10 hover:border-white/80
-                hover:[text-shadow:0_0_12px_rgba(255,255,255,0.65)]
-                disabled:pointer-events-none
-              "
-            >
-              Light Up
-            </motion.button>
+            {/* Top-right grid status */}
+            <div className="absolute right-10 top-12 z-30 flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.3em]">
+              <span
+                aria-hidden
+                className="inline-block h-2.5 w-2.5 rounded-full"
+                style={{
+                  backgroundColor: COLOR_RED,
+                  boxShadow: `0 0 10px ${COLOR_RED}99`,
+                }}
+              />
+              <span style={{ color: COLOR_RED }}>Grid Status: Offline</span>
+            </div>
 
-            <div className="relative z-10 space-y-3">
-              {BOOT_LINES.map((label, i) => {
-                const palette = DOT_PALETTE[dotColors[i]];
-                return (
-                  <div
-                    key={label}
-                    className="flex items-center gap-4 text-xs font-medium uppercase tracking-[0.3em] text-white/70"
-                  >
-                    <span
-                      aria-hidden
-                      className="inline-block h-2.5 w-2.5 rounded-full"
-                      style={{
-                        backgroundColor: palette.bg,
-                        boxShadow: `0 0 10px ${palette.glow}`,
-                        transition:
-                          'background-color 700ms ease-out, box-shadow 700ms ease-out',
-                      }}
-                    />
-                    <span>{label}</span>
-                  </div>
-                );
-              })}
+            {/* Ignition button + readout panel */}
+            <div className="absolute inset-0 flex items-center justify-center gap-20">
+              <IgnitionButton
+                onPress={handleIgnition}
+                disabled={hasPressed}
+              />
+              <ReadoutPanel
+                power={readings.power}
+                voltage={readings.voltage}
+                ampere={readings.ampere}
+              />
+            </div>
+
+            {/* Bottom-center status lines */}
+            <div className="absolute bottom-28 left-1/2 z-30 -translate-x-1/2 space-y-2.5">
+              <StatusLine
+                label="Grid Supply"
+                state="FAILED"
+                color={COLOR_RED}
+              />
+              <StatusLine
+                label="Backup System"
+                state={backupStatus.state}
+                color={backupStatus.color}
+              />
+              <StatusLine
+                label="Auto-Start Sequence"
+                state={autoStartStatus.state}
+                color={autoStartStatus.color}
+              />
+            </div>
+
+            {/* Footer */}
+            <div className="absolute bottom-8 left-1/2 z-30 -translate-x-1/2 font-mono text-[10px] uppercase tracking-[0.3em] text-white/25">
+              Power Zone Emergency Management System v2.4
             </div>
           </motion.div>
         )}
@@ -171,6 +266,7 @@ export default function Home() {
               playsInline
               autoPlay
               preload="auto"
+              onTimeUpdate={handleVideoTimeUpdate}
               onEnded={() => setVideoEnded(true)}
             />
 
@@ -212,6 +308,138 @@ export default function Home() {
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+function IgnitionButton({
+  onPress,
+  disabled,
+}: {
+  onPress: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <motion.button
+      type="button"
+      onClick={onPress}
+      disabled={disabled}
+      whileHover={disabled ? undefined : { scale: 1.04 }}
+      whileTap={disabled ? undefined : { scale: 0.93 }}
+      transition={{ type: 'spring', stiffness: 420, damping: 24 }}
+      className="cursor-pointer select-none disabled:cursor-default"
+      aria-label="Start engine"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={BUTTON_IMG}
+        alt=""
+        draggable={false}
+        className="pointer-events-none h-52 w-auto select-none drop-shadow-[0_10px_30px_rgba(220,38,38,0.28)]"
+      />
+    </motion.button>
+  );
+}
+
+function ReadoutPanel({
+  power,
+  voltage,
+  ampere,
+}: {
+  power: number;
+  voltage: number;
+  ampere: number;
+}) {
+  return (
+    <div
+      className="relative px-10 py-7 font-mono"
+      style={{
+        border: `1px solid ${COLOR_AMBER}66`,
+        boxShadow: `0 0 26px ${COLOR_AMBER}14, inset 0 0 24px rgba(0, 0, 0, 0.35)`,
+        backgroundColor: 'rgba(30, 22, 6, 0.35)',
+      }}
+    >
+      <ReadoutRow label="Power" value={power.toString()} unit="kW" />
+      <ReadoutRow label="Voltage" value={voltage.toString()} unit="V" />
+      <ReadoutRow label="Ampere" value={ampere.toString()} unit="A" last />
+    </div>
+  );
+}
+
+function ReadoutRow({
+  label,
+  value,
+  unit,
+  last,
+}: {
+  label: string;
+  value: string;
+  unit: string;
+  last?: boolean;
+}) {
+  return (
+    <div
+      className={`flex items-baseline justify-between gap-14 ${
+        last ? '' : 'mb-5'
+      }`}
+    >
+      <span
+        className="text-[11px] font-medium uppercase tracking-[0.32em]"
+        style={{ color: `${COLOR_AMBER}cc` }}
+      >
+        {label}
+      </span>
+      <div className="flex items-baseline gap-2">
+        <span
+          className="text-3xl font-bold tabular-nums"
+          style={{
+            color: COLOR_AMBER,
+            textShadow: `0 0 14px ${COLOR_AMBER}66`,
+          }}
+        >
+          {value}
+        </span>
+        <span
+          className="text-[11px] uppercase tracking-[0.2em]"
+          style={{ color: `${COLOR_AMBER}99` }}
+        >
+          {unit}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function StatusLine({
+  label,
+  state,
+  color,
+}: {
+  label: string;
+  state: string;
+  color: string;
+}) {
+  return (
+    <div className="flex w-[460px] items-center gap-4 font-mono text-[11px] uppercase tracking-[0.22em]">
+      <span
+        aria-hidden
+        className="inline-block h-2.5 w-2.5 shrink-0"
+        style={{
+          backgroundColor: color,
+          boxShadow: `0 0 8px ${color}99`,
+          transition:
+            'background-color 600ms ease-out, box-shadow 600ms ease-out',
+        }}
+      />
+      <span className="text-white/80">{label}</span>
+      <span
+        aria-hidden
+        className="flex-1 translate-y-[-3px] border-b border-dotted"
+        style={{ borderColor: COLOR_MUTED }}
+      />
+      <span style={{ color, transition: 'color 600ms ease-out' }}>
+        {state}
+      </span>
     </div>
   );
 }

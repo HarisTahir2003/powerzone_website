@@ -29,7 +29,8 @@ export default function ProductCard({ products, stackRef, textRefs }: Props) {
         w-[48vw] md:w-[29vw]
         h-[14vh]
         rounded-[2px]
-        shadow-[0_40px_90px_-30px_rgba(0,0,0,0.35)]
+        ring-1 ring-white/10
+        shadow-[0_2px_4px_-1px_rgba(0,0,0,0.35),0_24px_55px_-12px_rgba(0,0,0,0.6),0_8px_18px_-6px_rgba(0,0,0,0.4)]
       "
     >
       {/* Debossed "PZ" monogram — sits inside the card clip, does NOT translate */}

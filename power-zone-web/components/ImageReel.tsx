@@ -6,17 +6,11 @@ import type { Product } from "@/data/products";
 
 type Props = {
   products: Product[];
-  side: "left" | "right";
-  /**
-   * When true, the stack is rendered in reverse (last product at the top).
-   * Use with an opposite-direction GSAP tween so the new image slides in
-   * from above instead of below — see ProductShowcase.
-   */
   reversed?: boolean;
 };
 
 const ImageReel = forwardRef<HTMLDivElement, Props>(function ImageReel(
-  { products, side, reversed = false },
+  { products, reversed = false },
   ref,
 ) {
   const ordered = reversed ? [...products].slice().reverse() : products;
@@ -27,25 +21,26 @@ const ImageReel = forwardRef<HTMLDivElement, Props>(function ImageReel(
       className="will-change-transform"
       style={{ height: `${ordered.length * 100}%` }}
     >
-      {ordered.map((product, i) => {
-        const src = side === "left" ? product.leftImage : product.rightImage;
-        return (
-          <div
-            key={product.id}
-            className="relative h-screen w-full overflow-hidden"
-            style={{ backgroundColor: product.accentColor }}
-          >
-            <Image
-              src={src}
-              alt={`${product.title} — ${side} view`}
-              fill
-              sizes="(max-width: 768px) 100vw, 50vw"
-              priority={i === 0}
-              className="object-cover"
-            />
+      {ordered.map((product, i) => (
+        <div
+          key={product.id}
+          className="relative h-screen w-full overflow-hidden"
+          style={{ backgroundColor: product.leftColor }}
+        >
+          <div className="absolute inset-0 flex items-center justify-center p-8 md:p-14 md:pr-[17vw]">
+            <div className="relative h-full w-full">
+              <Image
+                src={product.image}
+                alt={product.title}
+                fill
+                sizes="(max-width: 768px) 100vw, 33vw"
+                priority={i === 0}
+                className="object-contain"
+              />
+            </div>
           </div>
-        );
-      })}
+        </div>
+      ))}
     </div>
   );
 });

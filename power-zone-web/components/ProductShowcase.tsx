@@ -40,6 +40,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useLenis } from "@/hooks/useLenis";
 import { products } from "@/data/products";
 import ImageReel from "./ImageReel";
+import SpecReel from "./SpecReel";
 import ProductCard from "./ProductCard";
 
 const REST_VH = 0;
@@ -152,24 +153,19 @@ export default function ProductShowcase() {
     }, containerRef);
 
     return () => ctx.revert();
-  }, []);
+  }, [products]);
 
   return (
     <section ref={containerRef} className="relative">
       <div ref={pinRef} className="relative h-screen w-full overflow-hidden">
         {/* Left reel — full viewport on mobile, 50% on desktop; natural order, translates UP */}
         <div className="absolute inset-y-0 left-0 w-full md:w-1/2 overflow-hidden">
-          <ImageReel ref={leftReelRef} products={products} side="left" />
+          <ImageReel ref={leftReelRef} products={products} />
         </div>
 
         {/* Right reel — hidden below md; REVERSED stack, translates DOWN (initial y set in timeline) */}
         <div className="hidden md:block absolute inset-y-0 right-0 w-1/2 overflow-hidden">
-          <ImageReel
-            ref={rightReelRef}
-            products={products}
-            side="right"
-            reversed
-          />
+          <SpecReel ref={rightReelRef} products={products} reversed />
         </div>
 
         {/* Pinned center card */}
