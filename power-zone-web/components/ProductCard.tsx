@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import type { RefObject } from "react";
+import { useId, type MutableRefObject } from "react";
 import type { Product } from "@/data/products";
 import {
   TextStaggerHover,
@@ -11,56 +10,208 @@ import {
 
 type Props = {
   products: Product[];
-  stackRef: RefObject<HTMLDivElement | null>;
-  textRefs: RefObject<(HTMLDivElement | null)[]>;
+  panelRefs: MutableRefObject<(HTMLElement | null)[]>;
+  cardRef?: MutableRefObject<HTMLElement | null>;
+  /** Index of the product currently visible at the top of the wipe stack. */
+  currentIndex: number;
+  /** Click handler — receives the index of the currently-visible product. */
+  onCardClick: (index: number) => void;
 };
 
-/* Card dimensions kept as a single source of truth — must match CARD_VH in
- * ProductShowcase.tsx. Block height and CARD_VH need to stay aligned so the
- * stack translates by exactly one block per transition.
- */
-const BLOCK_H_CLASS = "h-[14vh]";
+type EmbossedPZProps = {
+  accentColor: string;
+  idBase: string;
+  index: number;
+};
 
-export default function ProductCard({ products, stackRef, textRefs }: Props) {
+function EmbossedPZ({ accentColor, idBase, index }: EmbossedPZProps) {
+  const surfaceColor = accentColor || "#8f1d22";
+  const shadowFilterId = `${idBase}-shadow-${index}`;
+  const highlightFilterId = `${idBase}-highlight-${index}`;
+
+  // Center the monogram in the actual card. The previous lifted y-position
+  // made the PZ sit against the top edge on wide cards. Keeping the text at
+  // geometric center, with a tiny dy correction and slightly smaller size,
+  // leaves breathing room for the emboss shadows on all sides.
+  const sharedTextProps = {
+    x: "50%",
+    y: "50%",
+    dy: "0.04em",
+    textAnchor: "middle" as const,
+    dominantBaseline: "middle" as const,
+    fontSize: 205,
+    fontWeight: 900,
+    letterSpacing: -18,
+  };
+
   return (
+    <svg
+      aria-hidden
+      className="pointer-events-none absolute inset-0 z-[1] h-full w-full select-none overflow-visible"
+      viewBox="0 0 1000 260"
+      preserveAspectRatio="xMidYMid meet"
+      style={{ fontFamily: "inherit" }}
+    >
+      <defs>
+        <filter
+          id={shadowFilterId}
+          x="-35%"
+          y="-35%"
+          width="170%"
+          height="170%"
+          colorInterpolationFilters="sRGB"
+        >
+          <feGaussianBlur stdDeviation="5" />
+        </filter>
+        <filter
+          id={highlightFilterId}
+          x="-35%"
+          y="-35%"
+          width="170%"
+          height="170%"
+          colorInterpolationFilters="sRGB"
+        >
+          <feGaussianBlur stdDeviation="4" />
+        </filter>
+      </defs>
+
+      {/*
+        Blind-emboss stack:
+        1) blurred dark layer offset down/right = cast depth
+        2) blurred light layer offset up/left = soft surface highlight
+        3) crisp dark + crisp light offsets = beveled rim
+        4) exact same-color fill covers the shifted layers' interiors
+        5) very faint white fill gives the raised face a tiny light catch
+
+        The final letter body uses the card's own accent color, so the PZ
+        reads as molded card material rather than printed ink.
+      */}
+      <g>
+        <text
+          {...sharedTextProps}
+          fill="#000000"
+          opacity="0.17"
+          transform="translate(10 10)"
+          filter={`url(#${shadowFilterId})`}
+        >
+          PZ
+        </text>
+        <text
+          {...sharedTextProps}
+          fill="#ffffff"
+          opacity="0.13"
+          transform="translate(-8 -8)"
+          filter={`url(#${highlightFilterId})`}
+        >
+          PZ
+        </text>
+        <text
+          {...sharedTextProps}
+          fill="#000000"
+          opacity="0.28"
+          transform="translate(3.5 3.5)"
+        >
+          PZ
+        </text>
+        <text
+          {...sharedTextProps}
+          fill="#ffffff"
+          opacity="0.22"
+          transform="translate(-2.8 -2.8)"
+        >
+          PZ
+        </text>
+        <text {...sharedTextProps} fill={surfaceColor}>
+          PZ
+        </text>
+        <text {...sharedTextProps} fill="#ffffff" opacity="0.045">
+          PZ
+        </text>
+      </g>
+    </svg>
+  );
+}
+
+export default function ProductCard({
+  products,
+  panelRefs,
+  cardRef,
+  currentIndex,
+  onCardClick,
+}: Props) {
+  const currentProduct = products[currentIndex] ?? products[0];
+
+  // Unique SVG ids per instance — multiple ProductCards can coexist in the DOM
+  // during the live showcase + static hand-off states.
+  const uid = useId().replace(/:/g, "");
+  const grainId = `pz-card-grain-${uid}`;
+  const embossId = `pz-card-emboss-${uid}`;
+
+  return (
+    // The article itself is the click target — putting the handler on
+    // an inner full-card <button> overlay (a previous iteration) ate
+    // mouse events, which broke the title's hover-stagger animation.
+    // Now hover events reach the h2's TextStaggerHover wrapper while
+    // click + keyboard activation are still handled at the article level.
     <article
+      ref={(el) => {
+        if (cardRef) cardRef.current = el;
+      }}
+      onClick={() => onCardClick(currentIndex)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onCardClick(currentIndex);
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label={`Open ${currentProduct?.title ?? "product"} detail`}
       className="
-        relative overflow-hidden
-        w-[48vw] md:w-[29vw]
-        h-[14vh]
+        relative overflow-hidden cursor-pointer
+        w-[58vw] md:w-[35vw]
+        h-[17vh]
         rounded-[2px]
         ring-1 ring-white/10
         shadow-[0_2px_4px_-1px_rgba(0,0,0,0.35),0_24px_55px_-12px_rgba(0,0,0,0.6),0_8px_18px_-6px_rgba(0,0,0,0.4)]
+        focus-visible:outline-none focus-visible:ring-2
+        focus-visible:ring-white/70 focus-visible:ring-inset
       "
+      style={{ isolation: "isolate" }}
     >
-      {/* Debossed "PZ" monogram — sits inside the card clip, does NOT translate */}
+
+      {/* Card-scoped grain texture. It sits above the colored panels, so both
+       * the flat surface and the embossed PZ share the same material noise. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center select-none"
+        className="pointer-events-none absolute inset-0 z-[10] opacity-[0.075] mix-blend-overlay"
       >
-        <span
-          className="font-semibold tracking-[-0.06em] leading-none"
-          style={{
-            fontSize: "clamp(78px, 13vw, 180px)",
-            color: "rgba(0,0,0,0.06)",
-            textShadow:
-              "0 -1px 0 rgba(0,0,0,0.18), 0 1px 0 rgba(255,255,255,0.18)",
-          }}
+        <svg
+          className="h-full w-full"
+          xmlns="http://www.w3.org/2000/svg"
+          preserveAspectRatio="none"
         >
-          PZ
-        </span>
+          <filter id={grainId}>
+            <feTurbulence
+              type="fractalNoise"
+              baseFrequency="0.95"
+              numOctaves="2"
+              stitchTiles="stitch"
+            />
+            <feColorMatrix type="saturate" values="0" />
+          </filter>
+          <rect width="100%" height="100%" filter={`url(#${grainId})`} />
+        </svg>
       </div>
 
-      {/* Arrow — always visible, links to detail page (first product by default) */}
-      <Link
-        href={`/products/${products[0]?.slug ?? ""}`}
-        aria-label="Open product detail"
+      {/* Arrow — visual indicator only; the whole-card button handles clicks. */}
+      <div
+        aria-hidden
         className="
-          absolute top-3 right-3 z-30
+          pointer-events-none absolute top-3 right-3 z-50
           h-8 w-8 rounded-full
           flex items-center justify-center
           bg-black/10 text-white backdrop-blur-sm
-          hover:bg-black/25 transition-colors
         "
       >
         <svg
@@ -73,28 +224,48 @@ export default function ProductCard({ products, stackRef, textRefs }: Props) {
           <path d="M4 12 L12 4" strokeLinecap="round" />
           <path d="M6 4 L12 4 L12 10" strokeLinecap="round" />
         </svg>
-      </Link>
+      </div>
 
-      {/* Vertical stack of product blocks. GSAP translates this by -CARD_VH per transition. */}
-      <div
-        ref={stackRef}
-        className="relative z-20 w-full will-change-transform"
-        style={{ height: `${products.length * 100}%` }}
-      >
-        {products.map((product, i) => (
+      {/* Stacked card panels — top peels up to reveal next. */}
+      {products.map((product, i) => {
+        const surfaceColor = product.accentColor || "#8f1d22";
+
+        return (
           <section
             key={`${product.slug}-${i}`}
-            className={`relative flex ${BLOCK_H_CLASS} w-full items-end`}
-            style={{ backgroundColor: product.accentColor }}
+            ref={(el) => {
+              panelRefs.current[i] = el;
+            }}
+            className="absolute inset-0 flex items-end overflow-hidden will-change-transform"
+            style={{
+              backgroundColor: surfaceColor,
+              zIndex: products.length - i,
+            }}
           >
+            <EmbossedPZ
+              accentColor={surfaceColor}
+              idBase={embossId}
+              index={i}
+            />
+
+            {/* Subtle material lighting. Kept inside each panel so the text can
+             * stay above it while the PZ remains integrated into the surface. */}
             <div
-              ref={(el) => {
-                textRefs.current[i] = el;
+              aria-hidden
+              className="pointer-events-none absolute inset-0 z-[2]"
+              style={{
+                background:
+                  "linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.025) 42%, rgba(0,0,0,0.11) 100%)",
+                mixBlendMode: "soft-light",
+                opacity: 0.78,
               }}
+            />
+
+            <div
               className="
                 relative z-10 flex w-full items-end justify-between
                 gap-3 px-4 pb-3 md:px-6 md:pb-4
-                text-white will-change-transform
+                text-white
               "
             >
               <div className="max-w-[72%]">
@@ -102,7 +273,8 @@ export default function ProductCard({ products, stackRef, textRefs }: Props) {
                   as="h2"
                   className="
                     align-baseline font-semibold leading-[0.95]
-                    text-[clamp(14px,1.8vw,24px)]
+                    text-[clamp(17px,2.2vw,28px)]
+                    whitespace-nowrap
                   "
                   style={{ letterSpacing: "-0.02em" }}
                 >
@@ -119,18 +291,18 @@ export default function ProductCard({ products, stackRef, textRefs }: Props) {
                     {product.title}
                   </TextStaggerHoverHidden>
                 </TextStaggerHover>
-                <p className="mt-1 text-[9px] md:text-[10px] uppercase tracking-[0.12em] opacity-80">
+                <p className="mt-1 text-[11px] md:text-[12px] uppercase tracking-[0.12em] opacity-80 whitespace-nowrap">
                   {product.subtitle}
                 </p>
               </div>
-              <div className="flex flex-col items-end gap-0.5 text-right text-[9px] md:text-[10px] uppercase tracking-[0.12em] opacity-80">
+              <div className="flex flex-col items-end gap-0.5 text-right text-[11px] md:text-[12px] uppercase tracking-[0.12em] opacity-80">
                 <span>{product.category}</span>
                 <span>{product.year}</span>
               </div>
             </div>
           </section>
-        ))}
-      </div>
+        );
+      })}
     </article>
   );
 }

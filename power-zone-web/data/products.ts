@@ -39,7 +39,7 @@ export const products: Product[] = [
   {
     id: 1,
     slug: "FPT",
-    image: "/images/fpt1.png",
+    image: "/images/fpt_product_1.png",
     title: "FPT Generator",
     subtitle: "Diesel — Italian Engineering",
     category: "Industrial",
@@ -70,7 +70,7 @@ export const products: Product[] = [
   {
     id: 2,
     slug: "Perkins",
-    image: "/images/perkins2.png",
+    image: "/images/perkins_product_1.png",
     title: "Perkins Generator",
     subtitle: "Diesel — British Engineering",
     category: "Commercial",
@@ -101,7 +101,7 @@ export const products: Product[] = [
   {
     id: 3,
     slug: "Cummins",
-    image: "/images/cummins2.png",
+    image: "/images/cummins_product_1.png",
     title: "Cummins Generator",
     subtitle: "Diesel — American Power",
     category: "Utility",
@@ -131,7 +131,7 @@ export const products: Product[] = [
   {
     id: 4,
     slug: "Yuchai",
-    image: "/images/yuchai2.png",
+    image: "/images/yuchai_product_1.png",
     title: "Yuchai Generator",
     subtitle: "Diesel — High Value Performance",
     category: "Industrial",

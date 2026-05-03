@@ -1,32 +1,46 @@
 "use client";
 
-import { forwardRef } from "react";
+import type { MutableRefObject } from "react";
 import type { Product } from "@/data/products";
 
 type Props = {
   products: Product[];
-  reversed?: boolean;
+  panelRefs: MutableRefObject<(HTMLElement | null)[]>;
+  /** Inner text-content div per panel — used so an entry-transition wipe
+   * can clip just the text (top-down) while the panel's coloured
+   * background stays visible. */
+  contentRefs?: MutableRefObject<(HTMLElement | null)[]>;
 };
 
-const SpecReel = forwardRef<HTMLDivElement, Props>(function SpecReel(
-  { products, reversed = false },
-  ref,
-) {
-  const ordered = reversed ? [...products].slice().reverse() : products;
-
+/* Stacked spec panels — same architecture as ImageReel. The topmost panel
+ * peels off (handled by ProductShowcase) to reveal the next one. */
+export default function SpecReel({ products, panelRefs, contentRefs }: Props) {
   return (
-    <div
-      ref={ref}
-      className="will-change-transform"
-      style={{ height: `${ordered.length * 100}%` }}
-    >
-      {ordered.map((product, i) => (
+    <>
+      {products.map((product, i) => (
         <section
           key={`${product.slug}-${i}`}
-          className="relative h-screen w-full overflow-hidden"
-          style={{ backgroundColor: product.rightColor }}
+          ref={(el) => {
+            panelRefs.current[i] = el;
+          }}
+          className="absolute inset-0 will-change-transform"
+          style={{
+            backgroundColor: product.rightColor,
+            zIndex: products.length - i,
+          }}
         >
-          <div className="flex h-full flex-col justify-center text-white px-10 md:pl-[17vw] md:pr-12 lg:pr-20">
+          {/* Content is anchored to a fixed top offset (not vertically
+           * centered). With centering, varying content lengths shift the
+           * entire block — title, badge, etc. land at slightly different
+           * Y per product, which the wipe transition would highlight.
+           * Anchored to top, every product's badge/title sits at exactly
+           * the same row, so the wipe replaces them in place. */}
+          <div
+            ref={(el) => {
+              if (contentRefs) contentRefs.current[i] = el;
+            }}
+            className="flex h-full flex-col text-white px-10 md:pl-[17vw] md:pr-12 lg:pr-20 pt-[18vh] will-change-[clip-path]"
+          >
             <div className="mb-5 flex items-center gap-4">
               <span aria-hidden className="h-px w-10 bg-white/45" />
               <span className="font-mono text-[10px] uppercase tracking-[0.32em] text-white/70">
@@ -34,13 +48,9 @@ const SpecReel = forwardRef<HTMLDivElement, Props>(function SpecReel(
               </span>
             </div>
 
-            <h2
-              className="font-semibold leading-[0.95] text-[clamp(32px,4.2vw,56px)]"
-              style={{ letterSpacing: "-0.02em" }}
-            >
-              {product.title}
-            </h2>
-            <p className="mt-3 text-[12px] md:text-[13px] font-medium uppercase tracking-[0.24em] text-white/80">
+            {/* Big product title intentionally omitted — the centered
+             * card already carries the product name. */}
+            <p className="text-[12px] md:text-[13px] font-medium uppercase tracking-[0.24em] text-white/80">
               {product.tagline}
             </p>
 
@@ -83,12 +93,9 @@ const SpecReel = forwardRef<HTMLDivElement, Props>(function SpecReel(
                 </ul>
               </div>
             </div>
-
           </div>
         </section>
       ))}
-    </div>
+    </>
   );
-});
-
-export default SpecReel;
+}
