@@ -57,7 +57,7 @@ const SOLUTION_CARDS: SolutionCardData[] = [
 // viewport on any normal screen. Using a plain number (px) avoids the
 // mixed-unit interpolation quirks of strings like '100vh' → '-90px' which
 // were causing cards to skip the slide-in animation.
-const OFF_SCREEN_Y = 1500;
+const OFF_SCREEN_Y = 500;
 
 // ───────────────────────────────────────────────────────────────────────────
 // SCROLL SPEED KNOB
@@ -86,16 +86,16 @@ export default function SolutionsSection() {
   return (
     <section
       ref={containerRef}
-      className="relative bg-[#F4EFE7]"
+      className="relative bg-[#181818]"
       style={{ height: `${SOLUTION_CARDS.length * SECTION_VH_PER_CARD}vh` }}
     >
       <div className="sticky top-0 flex h-screen flex-col overflow-hidden">
         {/* Section header */}
         <div className="px-8 pt-24 text-center">
-          <p className="text-[11px] font-medium uppercase tracking-[0.32em] text-red-600">
+          <p className="text-[11px] font-medium uppercase tracking-[0.32em] text-red-500">
             Why Power Zone
           </p>
-          <h2 className="mt-4 text-[clamp(28px,3.8vw,52px)] font-semibold leading-[1.05] tracking-tight text-black">
+          <h2 className="mt-4 text-[clamp(28px,3.8vw,52px)] font-semibold leading-[1.05] tracking-tight text-white">
             What sets Power Zone&apos;s
             <br />
             Solutions Apart?
@@ -170,8 +170,8 @@ function SolutionCard({
           pointer-events-auto
           w-[90vw] max-w-[40rem]
           rounded-3xl
-          border border-black/10 bg-white
-          shadow-[0_24px_60px_-18px_rgba(0,0,0,0.28),0_8px_18px_-6px_rgba(0,0,0,0.18)]
+          bg-white
+          shadow-[0_30px_80px_-20px_rgba(0,0,0,0.55),0_10px_30px_-10px_rgba(0,0,0,0.4),0_0_60px_-15px_rgba(220,38,38,0.18)]
           p-10 md:p-14 pt-6 md:pt-8
           flex flex-col gap-6
         "
