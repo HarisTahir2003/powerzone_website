@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import SolutionsSection from '@/components/SolutionsSection';
 
 const LOGO_ON_DARK = '/images/logo-on-dark.png';
 const BUTTON_IMG = '/images/button.png';
@@ -24,6 +25,30 @@ const BACKUP_ONLINE_DELAY_MS = 1000;
 const AUTOSTART_COMPLETE_DELAY_MS = 1600;
 
 type StatusLineState = { state: string; color: string };
+
+const HERO_CONTAINER_VARIANTS = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.15, delayChildren: 0.5 },
+  },
+};
+
+const HERO_ITEM_VARIANTS = {
+  hidden: { opacity: 0, y: 24 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] as const },
+  },
+};
+
+const NAV_LINKS = [
+  { label: 'Products', href: '/products' },
+  { label: 'Applications', href: '/applications' },
+  { label: 'Blog', href: '/blog' },
+  { label: 'Contact Us', href: '/contact' },
+];
 
 export default function Home() {
   const [hasPressed, setHasPressed] = useState(false);
@@ -165,8 +190,9 @@ export default function Home() {
   };
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-black">
-      <AnimatePresence>
+    <>
+      <div className="relative w-screen h-screen overflow-hidden bg-black">
+        <AnimatePresence>
         {!hasLitUp && (
           <motion.div
             key="intro"
@@ -259,7 +285,8 @@ export default function Home() {
           >
             <video
               ref={videoRef}
-              className="absolute inset-0 w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-cover [transition:opacity_1200ms_ease-out]"
+              style={{ opacity: videoEnded ? 0.2 : 1 }}
               src="/poweron.mp4"
               poster="/images/intro-poster.jpg"
               muted
@@ -275,40 +302,96 @@ export default function Home() {
               src={LOGO_ON_DARK}
               alt="PowerZone"
               draggable={false}
-              className="pointer-events-none absolute left-8 top-8 z-30 h-14 w-auto select-none drop-shadow-[0_2px_10px_rgba(0,0,0,0.75)]"
+              className="pointer-events-none absolute left-8 top-4 z-40 h-16 w-auto select-none drop-shadow-[0_2px_10px_rgba(0,0,0,0.75)]"
             />
 
-            <AnimatePresence>
-              {videoEnded && (
-                <motion.div
-                  key="cta"
-                  initial={{ opacity: 0, y: 8 }}
+            {videoEnded && (
+              <>
+                {/* Full-width top navbar (logo overlays this via higher z-index) */}
+                <motion.nav
+                  initial={{ opacity: 0, y: -12 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 1, delay: 0.35, ease: 'easeOut' }}
-                  className="absolute inset-x-0 bottom-16 z-20 flex justify-center"
+                  transition={{
+                    duration: 0.9,
+                    delay: 0.3,
+                    ease: [0.22, 1, 0.36, 1],
+                  }}
+                  className="
+                    absolute left-0 right-0 top-0 z-30 h-24
+                    bg-black/30 backdrop-blur-md
+                    border-b border-white/10
+                  "
                 >
-                  <Link
-                    href="/products"
+                  <div
                     className="
-                      cursor-pointer
-                      px-12 py-4
-                      text-sm font-medium uppercase tracking-[0.3em]
+                      flex h-full items-center justify-center gap-3
+                      text-sm font-bold uppercase tracking-[0.24em]
                       text-white
-                      border border-white/40 bg-transparent
-                      transition-all duration-500
-                      hover:bg-white/10 hover:border-white/80
-                      hover:[text-shadow:0_0_12px_rgba(255,255,255,0.65)]
+                      [text-shadow:0_1px_4px_rgba(0,0,0,0.65)]
                     "
                   >
-                    View Products
-                  </Link>
+                    {NAV_LINKS.map((link) => (
+                      <Link
+                        key={link.label}
+                        href={link.href}
+                        className="
+                          cursor-pointer
+                          rounded-full px-5 py-2
+                          transition-colors duration-300
+                          hover:bg-red-500/55
+                        "
+                      >
+                        {link.label}
+                      </Link>
+                    ))}
+                  </div>
+                </motion.nav>
+
+                {/* Hero punchline */}
+                <motion.div
+                  variants={HERO_CONTAINER_VARIANTS}
+                  initial="hidden"
+                  animate="show"
+                  className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center px-8 text-center"
+                >
+                  <motion.span
+                    variants={HERO_ITEM_VARIANTS}
+                    className="text-[11px] md:text-[12px] font-medium uppercase tracking-[0.42em] text-white/70 [text-shadow:0_1px_4px_rgba(0,0,0,0.7)]"
+                  >
+                    Power Zone
+                  </motion.span>
+                  <motion.h1
+                    variants={HERO_ITEM_VARIANTS}
+                    className="mt-5 font-semibold leading-[0.95] text-[clamp(40px,5.5vw,84px)] tracking-[-0.02em] text-white [text-shadow:0_2px_18px_rgba(0,0,0,0.55)]"
+                  >
+                    Diesel Generators
+                    <br />
+                    by Power Zone
+                  </motion.h1>
+                  <motion.p
+                    variants={HERO_ITEM_VARIANTS}
+                    className="mt-5 text-[12px] md:text-[14px] font-medium uppercase tracking-[0.34em] text-white/85 [text-shadow:0_1px_4px_rgba(0,0,0,0.7)]"
+                  >
+                    Reliable Backup Power
+                  </motion.p>
+                  <motion.p
+                    variants={HERO_ITEM_VARIANTS}
+                    className="mt-8 max-w-[36rem] text-[14px] md:text-[15px] leading-relaxed text-white/75 [text-shadow:0_1px_4px_rgba(0,0,0,0.7)]"
+                  >
+                    Power Zone delivers high performance diesel generators and
+                    advanced battery energy storage systems, ensuring
+                    uninterrupted power for industries across Pakistan.
+                  </motion.p>
                 </motion.div>
-              )}
-            </AnimatePresence>
+
+              </>
+            )}
           </motion.div>
         )}
-      </AnimatePresence>
-    </div>
+        </AnimatePresence>
+      </div>
+      {videoEnded && <SolutionsSection />}
+    </>
   );
 }
 
