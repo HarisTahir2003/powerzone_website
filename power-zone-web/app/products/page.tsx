@@ -1,10 +1,9 @@
 import GrainOverlay from "@/components/GrainOverlay";
-import ProductExperience from "@/components/ProductExperience";
-import ProductNav from "@/components/ProductNav";
+import ProductsRoot from "@/components/ProductsRoot";
 
 export const metadata = {
   title: "Products — Power Zone",
-  description: "The Power Zone generator lineup.",
+  description: "The Power Zone generator and BESS lineup.",
 };
 
 export default function ProductsPage() {
@@ -15,14 +14,12 @@ export default function ProductsPage() {
     >
       <GrainOverlay />
 
-      {/* Top-right nav — generator quick-links */}
-      <ProductNav />
-
-      {/* The unified showcase + detail experience. The top-left "back/
-       * home" logo lives inside this component because its behavior is
-       * phase-dependent (links home in showcase, exits to listing in
-       * detail). */}
-      <ProductExperience />
+      {/* ProductsRoot owns category state (Generators vs BESS), renders
+       * the top-center toggle, and mounts the ProductExperience for the
+       * active catalog. The top-left "back/home" logo lives inside the
+       * experience because its behavior is phase-dependent (links home
+       * in showcase, exits to listing in detail). */}
+      <ProductsRoot />
     </div>
   );
 }

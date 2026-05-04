@@ -1,8 +1,14 @@
 "use client";
 
-import { products } from "@/data/products";
+import type { Product } from "@/data/products";
 
-export default function ProductNav() {
+type Props = {
+  /** The catalog whose product slugs are rendered as quick-links.
+   * Mounted by `ProductsRoot` with the active category's items. */
+  products: Product[];
+};
+
+export default function ProductNav({ products }: Props) {
   const handleClick = (index: number) => {
     window.dispatchEvent(
       new CustomEvent("pz:scrollToProduct", { detail: { index } }),
@@ -13,7 +19,7 @@ export default function ProductNav() {
     <nav
       className="
         fixed right-6 top-6 z-[70] hidden md:flex items-center gap-7
-        text-sm font-bold uppercase tracking-[0.22em] text-white
+        text-sm font-bold uppercase tracking-[0.22em] text-white font-display
         [text-shadow:0_1px_4px_rgba(0,0,0,0.7)]
       "
     >

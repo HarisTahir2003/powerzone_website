@@ -52,7 +52,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Image from "next/image";
 import Link from "next/link";
 import { useLenis } from "@/hooks/useLenis";
-import { products } from "@/data/products";
+import { textOn, type Product } from "@/data/products";
 import ImageReel from "./ImageReel";
 import SpecReel from "./SpecReel";
 import ProductCard from "./ProductCard";
@@ -66,7 +66,6 @@ if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
 }
 
-const N = products.length;
 const SHOWCASE_TRANSITION_VH = 220;
 const SHOWCASE_CYCLES = 30;
 const SHOWCASE_ST_ID = "pz-showcase";
@@ -78,8 +77,19 @@ const FAST_EASE = "power3.out";
 
 type Phase = "showcase" | "detail";
 
-export default function ProductExperience() {
+type ProductExperienceProps = {
+  /** The catalog the experience drives (e.g. generators or BESS).
+   * Treated as immutable per mount — switching catalogs should remount
+   * the component (typically via a `key` on the parent) so all the
+   * ScrollTriggers, Lenis instance, and refs reset cleanly. */
+  products: Product[];
+};
+
+export default function ProductExperience({
+  products,
+}: ProductExperienceProps) {
   const lenisRef = useLenis();
+  const N = products.length;
 
   const [phase, setPhase] = useState<Phase>("showcase");
   const [activeIdx, setActiveIdx] = useState(0);
@@ -726,7 +736,7 @@ export default function ProductExperience() {
                 </div>
                 <h1
                   ref={detailTitleRef}
-                  className="text-white font-bold leading-[0.95] text-[clamp(48px,7vw,108px)]"
+                  className="font-display text-white font-bold leading-[0.95] text-[clamp(48px,7vw,108px)]"
                   style={{ letterSpacing: "-0.02em" }}
                 >
                   <TextStaggerHover
@@ -765,34 +775,64 @@ export default function ProductExperience() {
               </div>
             </section>
 
-            {/* ---- Panel 2: Capabilities ---- */}
-            <section className="relative w-screen h-screen flex-shrink-0 flex items-center justify-center px-[8vw]">
+            {/* ---- Panel 2: Capabilities ----
+             * Background uses the product's `descriptionBgColor` (the
+             * very light tone of the family). Text color is computed
+             * from that background so it stays legible on any product. */}
+            <section
+              className="relative w-screen h-screen flex-shrink-0 flex items-center justify-center px-[8vw] font-body"
+              style={{
+                backgroundColor: activeProduct.descriptionBgColor,
+                color: textOn(activeProduct.descriptionBgColor),
+              }}
+            >
               <div className="grid w-full max-w-[110rem] grid-cols-1 gap-12 md:grid-cols-2 md:gap-16">
                 <div>
-                  <p className="font-mono text-[10px] uppercase tracking-[0.32em] text-black/55">
+                  <p
+                    className="font-mono text-[10px] uppercase tracking-[0.32em]"
+                    style={{ opacity: 0.55 }}
+                  >
                     Engineering
                   </p>
                   <h2
-                    className="mt-5 font-semibold leading-[1.04] text-black text-[clamp(32px,4vw,56px)]"
+                    className="mt-5 font-display font-semibold leading-[1.04] text-[clamp(32px,4vw,56px)]"
                     style={{ letterSpacing: "-0.02em" }}
                   >
                     {activeProduct.tagline}
                   </h2>
                 </div>
                 <div className="self-end">
-                  <h3 className="font-mono text-[10px] uppercase tracking-[0.32em] text-black/55">
+                  <h3
+                    className="font-mono text-[10px] uppercase tracking-[0.32em]"
+                    style={{ opacity: 0.55 }}
+                  >
                     Capabilities
                   </h3>
                   <ul className="mt-5">
                     {activeProduct.features.map((feature, i) => (
                       <li
                         key={feature}
-                        className="flex items-center justify-between gap-6 border-b border-black/12 py-4"
+                        className="flex items-center justify-between gap-6 py-4"
+                        style={{
+                          borderBottomWidth: 1,
+                          borderBottomStyle: "solid",
+                          borderBottomColor:
+                            textOn(activeProduct.descriptionBgColor) ===
+                            "#000000"
+                              ? "rgba(0, 0, 0, 0.12)"
+                              : "rgba(255, 255, 255, 0.18)",
+                        }}
                       >
-                        <span className="text-[14px] text-black/85">
+                        <span
+                          className="text-[14px]"
+                          style={{ opacity: 0.85 }}
+                        >
                           {feature}
                         </span>
-                        <span className="font-mono text-[10px] text-black/40 tabular-nums">
+                        <span
+                          className="font-mono text-[10px] tabular-nums"
+                          style={{ opacity: 0.4 }}
+                        >
                           0{i + 1}
                         </span>
                       </li>
@@ -803,7 +843,13 @@ export default function ProductExperience() {
             </section>
 
             {/* ---- Panel 3: Image + applications + origin ---- */}
-            <section className="relative w-screen h-screen flex-shrink-0 flex items-center justify-center px-[8vw]">
+            <section
+              className="relative w-screen h-screen flex-shrink-0 flex items-center justify-center px-[8vw] font-body"
+              style={{
+                backgroundColor: activeProduct.descriptionBgColor,
+                color: textOn(activeProduct.descriptionBgColor),
+              }}
+            >
               <div className="grid w-full max-w-[110rem] grid-cols-1 gap-12 md:grid-cols-2 md:gap-16 items-center">
                 <div
                   className="relative h-[60vh] overflow-hidden"
@@ -818,29 +864,42 @@ export default function ProductExperience() {
                   />
                 </div>
                 <div>
-                  <h3 className="font-mono text-[10px] uppercase tracking-[0.32em] text-black/55">
+                  <h3
+                    className="font-mono text-[10px] uppercase tracking-[0.32em]"
+                    style={{ opacity: 0.55 }}
+                  >
                     Applications
                   </h3>
                   <ul className="mt-5 space-y-2.5">
                     {activeProduct.applications.map((app) => (
                       <li
                         key={app}
-                        className="flex items-baseline gap-3 text-[15px] text-black/85"
+                        className="flex items-baseline gap-3 text-[15px]"
+                        style={{ opacity: 0.85 }}
                       >
                         <span
                           aria-hidden
-                          className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-black/40"
+                          className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full"
+                          style={{
+                            backgroundColor: textOn(
+                              activeProduct.descriptionBgColor,
+                            ),
+                            opacity: 0.4,
+                          }}
                         />
                         <span>{app}</span>
                       </li>
                     ))}
                   </ul>
                   <div className="mt-12">
-                    <p className="font-mono text-[10px] uppercase tracking-[0.32em] text-black/55">
+                    <p
+                      className="font-mono text-[10px] uppercase tracking-[0.32em]"
+                      style={{ opacity: 0.55 }}
+                    >
                       Origin
                     </p>
                     <p
-                      className="mt-1 font-bold leading-[0.92] text-black text-[clamp(56px,7vw,112px)]"
+                      className="mt-1 font-display font-bold leading-[0.92] text-[clamp(56px,7vw,112px)]"
                       style={{ letterSpacing: "-0.03em" }}
                     >
                       {activeProduct.year}

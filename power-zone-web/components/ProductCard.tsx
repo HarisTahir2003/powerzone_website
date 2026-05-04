@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, type MutableRefObject } from "react";
-import type { Product } from "@/data/products";
+import { textOn, type Product } from "@/data/products";
 import {
   TextStaggerHover,
   TextStaggerHoverActive,
@@ -265,8 +265,13 @@ export default function ProductCard({
               className="
                 relative z-10 flex w-full items-end justify-between
                 gap-3 px-4 pb-3 md:px-6 md:pb-4
-                text-white
               "
+              // Card text adapts to the panel's accent color via
+              // textOn(...) — every current accent (generators + BESS)
+              // is dark so this resolves to white, but if a future
+              // catalog ships a light-accent product the text stays
+              // legible.
+              style={{ color: textOn(surfaceColor) }}
             >
               <div className="max-w-[72%]">
                 <TextStaggerHover
@@ -274,7 +279,7 @@ export default function ProductCard({
                   className="
                     align-baseline font-semibold leading-[0.95]
                     text-[clamp(17px,2.2vw,28px)]
-                    whitespace-nowrap
+                    whitespace-nowrap font-display
                   "
                   style={{ letterSpacing: "-0.02em" }}
                 >
@@ -291,11 +296,11 @@ export default function ProductCard({
                     {product.title}
                   </TextStaggerHoverHidden>
                 </TextStaggerHover>
-                <p className="mt-1 text-[11px] md:text-[12px] uppercase tracking-[0.12em] opacity-80 whitespace-nowrap">
+                <p className="mt-1 text-[11px] md:text-[12px] uppercase tracking-[0.12em] opacity-80 whitespace-nowrap font-body">
                   {product.subtitle}
                 </p>
               </div>
-              <div className="flex flex-col items-end gap-0.5 text-right text-[11px] md:text-[12px] uppercase tracking-[0.12em] opacity-80">
+              <div className="flex flex-col items-end gap-0.5 text-right text-[11px] md:text-[12px] uppercase tracking-[0.12em] opacity-80 font-body">
                 <span>{product.category}</span>
                 <span>{product.year}</span>
               </div>

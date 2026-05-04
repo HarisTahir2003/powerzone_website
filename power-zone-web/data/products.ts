@@ -27,6 +27,11 @@ export type Product = {
   accentColor: string;
   leftColor: string;
   rightColor: string;
+  /** Background color for the horizontal-scroll detail panels (the
+   * "product description" surface the user slides through after the
+   * click choreography). Typically the lightest tone in the product's
+   * palette so the description copy reads as black-on-paper. */
+  descriptionBgColor: string;
   origin: string;
   tagline: string;
   overview: string;
@@ -34,6 +39,18 @@ export type Product = {
   applications: string[];
   url: string;
 };
+
+/** Returns "#FFFFFF" or "#000000" depending on which gives better
+ * contrast on `bg`. Uses a perceived-luminance (YIQ) split so it
+ * matches what the eye actually sees, not just the math. */
+export function textOn(bg: string): "#FFFFFF" | "#000000" {
+  const hex = bg.startsWith("#") ? bg.slice(1) : bg;
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  const luminance = (r * 299 + g * 587 + b * 114) / 1000;
+  return luminance > 140 ? "#000000" : "#FFFFFF";
+}
 
 export const products: Product[] = [
   {
@@ -44,9 +61,10 @@ export const products: Product[] = [
     subtitle: "Diesel — Italian Engineering",
     category: "Industrial",
     year: "Italy",
-    accentColor: "#8B1F24",
-    leftColor: "#6B1418",
-    rightColor: "#B85450",
+    accentColor: "#2f0000",
+    leftColor: "#2f0000",
+    rightColor: "#F4CCCC",
+    descriptionBgColor: "#FFEEEE",
     origin: "Italian Engineering",
     tagline: "Built on European precision",
     overview:
@@ -75,9 +93,10 @@ export const products: Product[] = [
     subtitle: "Diesel — British Engineering",
     category: "Commercial",
     year: "UK",
-    accentColor: "#2D4A2E",
-    leftColor: "#1A2E1C",
-    rightColor: "#5F8A5F",
+    accentColor: "#101010",
+    leftColor: "#101010",
+    rightColor: "#D0D0D0",
+    descriptionBgColor: "#FBFBFB",
     origin: "British Engineering",
     tagline: "Built for durability and efficiency",
     overview:
@@ -106,9 +125,10 @@ export const products: Product[] = [
     subtitle: "Diesel — American Power",
     category: "Utility",
     year: "USA",
-    accentColor: "#1B2631",
-    leftColor: "#0E1620",
-    rightColor: "#4A5E72",
+    accentColor: "#002000",
+    leftColor: "#002000",
+    rightColor: "#CCF0CC",
+    descriptionBgColor: "#EEFFEE",
     origin: "American Power",
     tagline: "American muscle, global reliability",
     overview:
@@ -136,9 +156,10 @@ export const products: Product[] = [
     subtitle: "Diesel — High Value Performance",
     category: "Industrial",
     year: "China",
-    accentColor: "#6B4423",
-    leftColor: "#3E2A14",
-    rightColor: "#A07A3E",
+    accentColor: "#000022",
+    leftColor: "#000022",
+    rightColor: "#CCCCE0",
+    descriptionBgColor: "#EEEEFF",
     origin: "Chinese Manufacturing",
     tagline: "High value performance",
     overview:
@@ -157,5 +178,107 @@ export const products: Product[] = [
       "Construction sites",
     ],
     url: "https://powerzone.com.pk/yuchai",
+  },
+];
+
+/* -----------------------------------------------------------------------------
+ * BESS — Battery Energy Storage Solutions catalog.
+ *
+ * Same Product shape as `products` so the same showcase + detail experience
+ * can drive either catalog. Copy is placeholder for now and should be
+ * replaced with real marketing language before launch.
+ * -------------------------------------------------------------------------- */
+
+export const bessProducts: Product[] = [
+  {
+    id: 1,
+    slug: "Battery",
+    image: "/images/battery_product_1.png",
+    title: "Lithium Battery",
+    subtitle: "High-Density Storage Module",
+    category: "Energy Storage",
+    year: "2025",
+    accentColor: "#234B5C",
+    leftColor: "#0F2A36",
+    rightColor: "#4F7A8A",
+    descriptionBgColor: "#EEF4F7",
+    origin: "Pakistan Engineered",
+    tagline: "Modular density for every load profile",
+    overview:
+      "High-cycle lithium iron phosphate cells packaged into a rack-mountable module. Pair multiple modules to scale capacity from a single-room UPS to industrial cabinets without re-engineering the BMS.",
+    features: [
+      "Long cycle life with thermal monitoring",
+      "Active cell balancing for stable discharge",
+      "Modular form factor — scale by adding units",
+      "Integrated battery management system",
+    ],
+    applications: [
+      "Off-grid solar storage",
+      "Telecom backup",
+      "Commercial UPS",
+      "Industrial load shifting",
+      "Microgrid integration",
+    ],
+    url: "https://powerzone.com.pk/battery",
+  },
+  {
+    id: 2,
+    slug: "BESS",
+    image: "/images/bess_product_1.png",
+    title: "BESS Cabinet",
+    subtitle: "Battery Energy Storage System",
+    category: "Storage System",
+    year: "2025",
+    accentColor: "#3D5A40",
+    leftColor: "#1F2F22",
+    rightColor: "#739079",
+    descriptionBgColor: "#EFF4EF",
+    origin: "Pakistan Engineered",
+    tagline: "Integrated cabinet for grid-edge storage",
+    overview:
+      "A complete cabinet that bundles battery racks, the BMS, the inverter interface, and thermal management. Drop in a single unit to convert intermittent renewable supply into steady-state power.",
+    features: [
+      "Pre-wired battery + power-conversion stack",
+      "Active cooling tuned for sustained discharge",
+      "Grid-tied or off-grid operation modes",
+      "Remote telemetry and fleet monitoring",
+    ],
+    applications: [
+      "Solar + storage installations",
+      "Industrial peak shaving",
+      "Backup for critical infrastructure",
+      "Microgrid anchor storage",
+    ],
+    url: "https://powerzone.com.pk/bess",
+  },
+  {
+    id: 3,
+    slug: "Inverter",
+    image: "/images/inverter_product_1.png",
+    title: "Hybrid Inverter",
+    subtitle: "Bi-directional Power Conversion",
+    category: "Power Electronics",
+    year: "2025",
+    accentColor: "#7A4A1F",
+    leftColor: "#42260E",
+    rightColor: "#B58050",
+    descriptionBgColor: "#F6EFE8",
+    origin: "Pakistan Engineered",
+    tagline: "DC-AC conversion at grid-stable quality",
+    overview:
+      "A bi-directional hybrid inverter that handles both battery charging and AC inversion in one chassis. Sub-millisecond switchover keeps loads online during grid drops without dropping a frame.",
+    features: [
+      "Bi-directional MPPT for solar + battery",
+      "Sub-millisecond grid-to-island transfer",
+      "High-efficiency conversion across load range",
+      "Configurable for single- or three-phase output",
+    ],
+    applications: [
+      "Hybrid solar systems",
+      "Backup power for residential & commercial",
+      "Off-grid microgrids",
+      "EV charging infrastructure",
+    ],
+    url: "https://powerzone.com.pk/inverter",
   },
 ];
