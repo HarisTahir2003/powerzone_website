@@ -27,35 +27,35 @@ const PROCESS_STEPS: ProcessStep[] = [
     titlePrimary: 'Utility',
     titleAccent: 'Companies',
     description:
-      'Backup solutions that bridge supply gaps and enhance grid reliability.',
+      'Power Zone modernizes utility energy networks with hybrid diesel, battery storage, and intelligent dispatch solutions. Built for sub-transmission and distribution systems, they stabilize frequency, ease grid stress, manage peaks, integrate renewables, ramp quickly, and provide localized backup without overloading central infrastructure.',
     imageSrc: '/images/utility.png',
   },
   {
     titlePrimary: 'Data',
-    titleAccent: 'Data Centers',
+    titleAccent: 'Centers',
     description:
-      "Uninterrupted power, built for zero-failure environments.",
+      "Power Zone provides integrated diesel, lithium battery, smart control, and service solutions for mission-critical data centers. Deployable on-site or via utility agreements, its platforms unify grid, solar, and generator power while cybersecurity, 24/7 monitoring, and predictive maintenance maximize uptime, scalability, reliability, and compliance.",
     imageSrc: '/images/datacenter.png',
   },
   {
     titlePrimary: 'Commercial',
     titleAccent: 'Buildings',
     description:
-      'Reliable backup to reduce downtime and energy costs.',
+      'Power Zone delivers tailored commercial building power systems combining energy storage, intelligent management, diesel generation, and backup automation. Solutions reduce energy costs up to 30%, lower carbon footprint, ensure outage resilience, and include full design, permitting, installation, monitoring, and maintenance support for long-term returns.',
     imageSrc: '/images/commercial.png',
   },
   {
     titlePrimary: 'Government',
     titleAccent: 'Solutions',
     description:
-      'Reliable power for essential public infrastructure.',
+      'Power Zone provides scalable energy storage and backup systems for public institutions and essential services. Its solutions integrate with existing infrastructure to ensure uninterrupted, clean power during outages and peak demand, helping operators improve resilience, reduce risk, and maintain critical service continuity.',
     imageSrc: '/images/government.png',
   },
   {
     titlePrimary: 'Residential',
     titleAccent: 'Developers',
     description:
-      'Energy systems for high-end homes and off-grid developments.',
+      'Power Zone’s residential platform combines storage, hybrid inverters, C&I BESS, and FPT generators to deliver clean, resilient power for community housing. It lowers costs and emissions, supports grid stability, offsets energy needs, and includes monitoring plus long-term technical support.',
     imageSrc: '/images/residential.png',
   },
 ];
@@ -155,15 +155,31 @@ function ProcessCard({
     const scaleValues: number[] = [];
     const opacityValues: number[] = [];
 
+    // Reserve the last DWELL_FRACTION of progress as dwell time for the
+    // final card. Without this, the last card's "active" checkpoint sits at
+    // progress=1.0 (the exact frame the section unsticks), so the user
+    // never sees it before Section 4 takes over. With dwell, all the
+    // transitions complete by progress=(1 - DWELL_FRACTION), and the final
+    // card stays at the front for the remaining scroll thanks to
+    // useTransform's automatic clamping past the last input keyframe.
+    const DWELL_FRACTION = 0.15;
+    const transitionEnd = 1 - DWELL_FRACTION;
+
     for (let i = 0; i < total; i++) {
-      inputs.push(i / (total - 1));
+      inputs.push((i / (total - 1)) * transitionEnd);
       const level = i - index;
 
       if (level < 0) {
-        // Hasn't entered at this checkpoint
+        // Hasn't entered at this checkpoint. Y parks the card OFF_SCREEN_Y
+        // px below center (clipped by the section's overflow-hidden), so
+        // it's invisible regardless of opacity. We keep opacity = 1 here
+        // (instead of 0) so that as the card slides up into view, it's
+        // already fully opaque — its solid bg immediately covers the card
+        // behind it instead of letting that card bleed through during the
+        // fade-in interpolation.
         yValues.push(OFF_SCREEN_Y);
         scaleValues.push(1);
-        opacityValues.push(0);
+        opacityValues.push(1);
       } else {
         // Front (level 0) or receded (level > 0)
         yValues.push(-level * RECEDE_Y);
@@ -199,7 +215,7 @@ function ProcessCard({
         opacity: index === 0 ? 1 : 0,
       }}
       style={{ y, scale, opacity, zIndex: 10 + index }}
-      className="pointer-events-none absolute inset-0 flex items-center justify-center px-4 py-6 md:px-10 md:py-10"
+      className="pointer-events-none absolute inset-0 flex items-center justify-center px-4 py-6 md:px-10 md:py-6"
     >
       <div
         className="

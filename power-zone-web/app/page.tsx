@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import SolutionsSection from '@/components/SolutionsSection';
 import ProcessSection from '@/components/ProcessSection';
+import GoalsSection from '@/components/GoalsSection';
 
 const LOGO_ON_DARK = '/images/logo-on-dark.png';
 const BUTTON_IMG = '/images/button.png';
@@ -393,6 +394,7 @@ export default function Home() {
       </div>
       {videoEnded && <SolutionsSection />}
       {videoEnded && <ProcessSection />}
+      {videoEnded && <GoalsSection />}
     </>
   );
 }
