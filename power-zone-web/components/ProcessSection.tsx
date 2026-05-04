@@ -24,39 +24,39 @@ type ProcessStep = {
 
 const PROCESS_STEPS: ProcessStep[] = [
   {
-    titlePrimary: 'Upload Your',
-    titleAccent: 'Artwork',
+    titlePrimary: 'Utility',
+    titleAccent: 'Companies',
     description:
-      'Take clear photos, tell the story behind your artwork and upload everything easily via our platform.',
-    imageSrc: '',
+      'Backup solutions that bridge supply gaps and enhance grid reliability.',
+    imageSrc: '/images/utility.png',
   },
   {
-    titlePrimary: 'Review',
-    titleAccent: 'by Pieter',
+    titlePrimary: 'Data',
+    titleAccent: 'Data Centers',
     description:
-      "We carefully review your submission. If your painting qualifies, we'll arrange a personal viewing. You will hear from us within 48 hours.",
-    imageSrc: '',
+      "Uninterrupted power, built for zero-failure environments.",
+    imageSrc: '/images/datacenter.png',
   },
   {
-    titlePrimary: 'Personal',
-    titleAccent: 'Appointment',
+    titlePrimary: 'Commercial',
+    titleAccent: 'Buildings',
     description:
-      'If your artwork is suitable, we will schedule an appointment. Pieter will visit you together with a specialist and give you a fair offer straight away.',
-    imageSrc: '',
+      'Reliable backup to reduce downtime and energy costs.',
+    imageSrc: '/images/commercial.png',
   },
   {
-    titlePrimary: 'Step',
-    titleAccent: 'Four',
+    titlePrimary: 'Government',
+    titleAccent: 'Solutions',
     description:
-      'Add the description for the fourth step here. Replace this placeholder with your own copy.',
-    imageSrc: '',
+      'Reliable power for essential public infrastructure.',
+    imageSrc: '/images/government.png',
   },
   {
-    titlePrimary: 'Step',
-    titleAccent: 'Five',
+    titlePrimary: 'Residential',
+    titleAccent: 'Developers',
     description:
-      'Add the description for the fifth step here. Replace this placeholder with your own copy.',
-    imageSrc: '',
+      'Energy systems for high-end homes and off-grid developments.',
+    imageSrc: '/images/residential.png',
   },
 ];
 
@@ -82,7 +82,7 @@ const OFF_SCREEN_Y = 1000;
 // (1 level = 1 card behind the front card) we shift up, scale down, and fade.
 const RECEDE_Y = 0;         // px shift per level (set to 0 so receded cards stay hidden behind the front card; bump to e.g. 18 only if you want previous cards' tops to peek above)
 const RECEDE_SCALE = 0.05;  // scale shrink per level   (level 1 = 0.95)
-const RECEDE_OPACITY = 0.3; // opacity drop per level   (level 1 = 0.7)
+const RECEDE_OPACITY = 0.0; // opacity drop per level   (level 1 = 0.7)
 
 export default function ProcessSection() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -97,16 +97,36 @@ export default function ProcessSection() {
       className="relative bg-[#0F0F0F]"
       style={{ height: `${PROCESS_STEPS.length * SECTION_VH_PER_STEP}vh` }}
     >
-      <div className="sticky top-0 flex h-screen items-center justify-center overflow-hidden">
-        {PROCESS_STEPS.map((step, i) => (
-          <ProcessCard
-            key={`${step.titlePrimary}-${i}`}
-            step={step}
-            index={i}
-            total={PROCESS_STEPS.length}
-            scrollYProgress={scrollYProgress}
-          />
-        ))}
+      <div className="sticky top-0 flex h-screen flex-col overflow-hidden">
+        {/* Section header */}
+        <div className="px-6 pt-16 pb-4 text-center md:pt-20 md:pb-6">
+          <p className="text-[11px] font-medium uppercase tracking-[0.32em] text-red-500">
+            Our Solutions
+          </p>
+          <h2 className="mx-auto mt-4 max-w-[60rem] text-[clamp(24px,3.2vw,46px)] font-semibold leading-[1.1] tracking-tight text-white">
+            Power &amp; Backup Solutions for Industry-Specific Demands
+          </h2>
+          <p className="mx-auto mt-5 max-w-[44rem] text-[14px] leading-relaxed text-white/65 md:text-[15px]">
+            Engineered to perform, trusted by industries across Pakistan and
+            beyond. Discover resilient power systems tailored to your
+            operational needs — with support you can count on.
+          </p>
+        </div>
+
+        {/* Cards container — `flex-1` fills the remaining viewport below the
+         * header. Each ProcessCard is `absolute inset-0` inside this slot,
+         * so the card height is naturally smaller than before. */}
+        <div className="relative flex-1">
+          {PROCESS_STEPS.map((step, i) => (
+            <ProcessCard
+              key={`${step.titlePrimary}-${i}`}
+              step={step}
+              index={i}
+              total={PROCESS_STEPS.length}
+              scrollYProgress={scrollYProgress}
+            />
+          ))}
+        </div>
       </div>
     </section>
   );
