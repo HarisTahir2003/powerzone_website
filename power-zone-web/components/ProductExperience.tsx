@@ -237,7 +237,11 @@ export default function ProductExperience({
 
     gsap.set(detailTrackRef.current, { x: 0 });
 
-    gsap.to(detailTrackRef.current, {
+    // Master tween — vertical scroll drives the horizontal x of the
+    // panel track. Captured into a local so we can use it as a
+    // `containerAnimation` for the per-element entry tweens below
+    // (those need to fire based on horizontal motion, not scroll).
+    const masterTween = gsap.to(detailTrackRef.current, {
       x: -totalScroll,
       ease: "none",
       scrollTrigger: {
@@ -253,8 +257,60 @@ export default function ProductExperience({
           const nextIdx = (activeIdxRef.current + 1) % N;
           exitToShowcase(nextIdx);
         },
+        onLeaveBack: () => {
+          if (transitioningRef.current) return;
+          transitioningRef.current = true;
+          lenisRef.current?.stop();
+          gsap.to(detailLayerRef.current, {
+            autoAlpha: 0,
+            duration: 0.35,
+            ease: "power2.in",
+            onComplete: () => {
+              transitioningRef.current = false;
+              exitToShowcase(activeIdxRef.current);
+            },
+          });
+        },
       },
     });
+
+    // Scroll-driven entry animations for the in-panel content.
+    // Every element marked `.pz-anim` fades + slides up the moment its
+    // left edge crosses 88% of the viewport width during the horizontal
+    // scroll. ScrollTrigger's `containerAnimation` rebinds the trigger
+    // axis from the (vertical) page scroll to the (horizontal) master
+    // tween, so this works inside the pinned section without a custom
+    // observer. `onLeaveBack` re-hides elements when the user scrolls
+    // backward past them, so re-entering replays the reveal cleanly.
+    const animEls = Array.from(
+      detailTrackRef.current.querySelectorAll<HTMLElement>(".pz-anim"),
+    );
+    if (animEls.length > 0) {
+      gsap.set(animEls, { y: 60, autoAlpha: 0 });
+      animEls.forEach((el) => {
+        ScrollTrigger.create({
+          trigger: el,
+          containerAnimation: masterTween,
+          start: "left 88%",
+          onEnter: () => {
+            gsap.to(el, {
+              y: 0,
+              autoAlpha: 1,
+              duration: 0.8,
+              ease: "power3.out",
+            });
+          },
+          onLeaveBack: () => {
+            gsap.to(el, {
+              y: 60,
+              autoAlpha: 0,
+              duration: 0.4,
+              ease: "power2.in",
+            });
+          },
+        });
+      });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -473,51 +529,47 @@ export default function ProductExperience({
       // Tear down the detail ScrollTrigger so the body height shrinks
       // back from the horizontal pin spacer. Note: do NOT reset the
       // detail track's `x` here — the detail layer is still visible
-      // (showing panel 4 = next product hero), and snapping the track
-      // back to x:0 would briefly reveal panel 1 (the small framed
-      // image) which is the source of the "shrunken" flash. The track
-      // reset is deferred until after the detail layer is hidden.
+      // (showing the final panel = next product hero), and snapping the
+      // track back to x:0 would briefly reveal panel 1. The track reset
+      // is deferred until after the detail layer is hidden.
       ScrollTrigger.getById(DETAIL_ST_ID)?.kill();
 
       // Restore showcase clip-path state (entry choreography left
       // these in their wiped-out positions). For the card we use
       // `clearProps` rather than re-setting clip-path to inset(0%) —
       // even an "all visible" clip-path can clip the element's
-      // box-shadow in some browsers, which manifests as the card's
-      // drop shadow visibly disappearing the moment we land on the
-      // listing page after the detail hand-off.
+      // box-shadow in some browsers.
       gsap.set(showcaseCardRef.current, { clearProps: "clipPath" });
       gsap.set(showcaseRightOverlayRef.current, {
         clipPath: "inset(0% 0% 0% 0%)",
       });
 
-      // Make showcase visible — at this moment both showcase and detail
-      // are visible, both showing nextProduct's hero. The next step
-      // hides detail, leaving only showcase. No visible change.
+      // Make showcase visible while detail is still covering it.
       gsap.set(
         [
           showcaseLeftRef.current,
           showcaseRightRef.current,
           showcaseCardRef.current,
         ],
-        { autoAlpha: 1 },
+        { autoAlpha: 1, y: 0 },
       );
 
       // Reset scroll & rebuild showcase ScrollTrigger.
       lenisRef.current?.scrollTo(0, { immediate: true, force: true });
       setupShowcase();
 
-      // Position showcase scroll at nextProduct's slot. Forced
-      // ScrollTrigger.update so the panel clips reflect the new position
-      // BEFORE we hide the detail layer (otherwise showcase would briefly
-      // show product 0).
+      // Position showcase at nextProduct's slot. Use the small
+      // `nextIdx / totalTransitions` progress (lands near scroll=0)
+      // rather than mid-pin. Mid-pin requires scrolling to a very large
+      // pixel position which the freshly-added showcase pin spacer
+      // hasn't reliably laid out yet — Lenis would clamp the scroll,
+      // window.scrollY would stay near 0, and the next ScrollTrigger
+      // update would compute progress ≈ 0 and render FPT (panel 0).
+      // This matches the proven pre-mid-pin implementation.
       const st = ScrollTrigger.getById(SHOWCASE_ST_ID);
       if (st) {
         const totalTransitions = N * SHOWCASE_CYCLES;
-        // Land mid-pin so the user has room to scroll backward as
-        // well as forward through the modular wrap.
-        const targetT = Math.floor(SHOWCASE_CYCLES / 2) * N + nextIdx;
-        const targetProgress = targetT / totalTransitions;
+        const targetProgress = nextIdx / totalTransitions;
         const targetScroll =
           st.start + targetProgress * (st.end - st.start);
         lenisRef.current?.scrollTo(targetScroll, {
@@ -534,7 +586,7 @@ export default function ProductExperience({
       gsap.set(detailTrackRef.current, { x: 0 });
 
       // Update React state. Detail layer is now hidden so its re-render
-      // (with the product after next, etc.) is invisible.
+      // is invisible.
       flushSync(() => {
         setActiveIdx(nextIdx);
         setCurrentVisibleIdx(nextIdx);
@@ -556,13 +608,9 @@ export default function ProductExperience({
   useLayoutEffect(() => {
     const ctx = gsap.context(() => {
       gsap.set(detailLayerRef.current, { autoAlpha: 0 });
+      gsap.set(showcaseCardRef.current, { y: 80, autoAlpha: 0 });
       setupShowcase();
 
-      // Land at the *middle* of the pin range, not the very start, so
-      // backward scrolling has room (the modular wrap means anywhere
-      // in the pin renders product `safeInitialIdx`, but only mid-pin
-      // gives the user roughly equal scroll distance both ways before
-      // they exit the trigger).
       requestAnimationFrame(() => {
         const st = ScrollTrigger.getById(SHOWCASE_ST_ID);
         if (!st) return;
@@ -575,6 +623,13 @@ export default function ProductExperience({
         lenisRef.current?.scrollTo(targetScroll, {
           immediate: true,
           force: true,
+        });
+        gsap.to(showcaseCardRef.current, {
+          y: 0,
+          autoAlpha: 1,
+          duration: 0.9,
+          ease: "power3.out",
+          delay: 0.5,
         });
       });
     }, containerRef);
@@ -647,6 +702,11 @@ export default function ProductExperience({
   // -----------------------------------------------------------------------
   const activeProduct = products[activeIdx];
   const nextProduct = products[(activeIdx + 1) % N];
+  // True when the product has actual gallery images distinct from its
+  // hero photo. BESS products currently fall back to the main image,
+  // and we don't want to re-use the hero in mid-scroll panels — so we
+  // render tonal placeholder cards in those slots instead.
+  const hasGallery = activeProduct.gallery[0] !== activeProduct.image;
 
   return (
     <div
@@ -817,10 +877,10 @@ export default function ProductExperience({
               </div>
             </section>
 
-            {/* ---- Panel 2: Capabilities ----
-             * Background uses the product's `descriptionBgColor` (the
-             * very light tone of the family). Text color is computed
-             * from that background so it stays legible on any product. */}
+            {/* ---- Panel 2: Long description + supporting image ----
+             * Distributes the gallery — image[0] lives here on the
+             * right of a text-heavy column rather than waiting until
+             * the end of the scroll. */}
             <section
               className="relative w-screen h-screen flex-shrink-0 flex items-center justify-center px-[8vw] font-body"
               style={{
@@ -828,24 +888,97 @@ export default function ProductExperience({
                 color: textOn(activeProduct.descriptionBgColor),
               }}
             >
-              <div className="grid w-full max-w-[110rem] grid-cols-1 gap-12 md:grid-cols-2 md:gap-16">
-                <div>
+              <div className="grid w-full max-w-[110rem] grid-cols-1 gap-12 md:grid-cols-[1.1fr_1fr] md:gap-16 items-center">
+                <div className="flex flex-col gap-7">
                   <p
-                    className="font-mono text-[10px] uppercase tracking-[0.32em]"
+                    className="pz-anim font-mono text-[10px] uppercase tracking-[0.32em]"
+                    style={{ opacity: 0.55 }}
+                  >
+                    The Story
+                  </p>
+                  <h2
+                    className="pz-anim font-display font-semibold leading-[1.04] text-[clamp(28px,3.4vw,48px)]"
+                    style={{ letterSpacing: "-0.02em" }}
+                  >
+                    {activeProduct.tagline}
+                  </h2>
+                  <p
+                    className="pz-anim max-w-[36rem] text-[14px] md:text-[15px] leading-relaxed"
+                    style={{ opacity: 0.85 }}
+                  >
+                    {activeProduct.descriptionLong}
+                  </p>
+                </div>
+                {hasGallery ? (
+                  <div
+                    className="pz-anim relative h-[58vh] overflow-hidden"
+                    style={{ backgroundColor: activeProduct.leftColor }}
+                  >
+                    <Image
+                      src={activeProduct.gallery[0]}
+                      alt={`${activeProduct.title} — supporting view 1`}
+                      fill
+                      sizes="50vw"
+                      className="object-cover"
+                    />
+                  </div>
+                ) : (
+                  // No real gallery image for this product (e.g. BESS).
+                  // Render a tonal placeholder card so the layout still
+                  // breathes without re-using the main photo.
+                  <div
+                    className="pz-anim relative h-[58vh] flex items-center justify-center font-display"
+                    style={{
+                      backgroundColor: activeProduct.leftColor,
+                      color: textOn(activeProduct.leftColor),
+                    }}
+                  >
+                    <span
+                      className="text-[clamp(64px,8vw,140px)] font-bold tracking-[-0.04em]"
+                      style={{ opacity: 0.18 }}
+                    >
+                      {activeProduct.slug}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* ---- Panel 3: Engineering deep-dive + capabilities ----
+             * Pure text panel — the engineering paragraph on the left,
+             * the numbered capabilities list on the right. Sits between
+             * two image panels for visual rhythm. */}
+            <section
+              className="relative w-screen h-screen flex-shrink-0 flex items-center justify-center px-[8vw] font-body"
+              style={{
+                backgroundColor: activeProduct.descriptionBgColor,
+                color: textOn(activeProduct.descriptionBgColor),
+              }}
+            >
+              <div className="grid w-full max-w-[110rem] grid-cols-1 gap-12 md:grid-cols-[1.1fr_1fr] md:gap-16 items-start">
+                <div className="flex flex-col gap-7 md:pt-[8vh]">
+                  <p
+                    className="pz-anim font-mono text-[10px] uppercase tracking-[0.32em]"
                     style={{ opacity: 0.55 }}
                   >
                     Engineering
                   </p>
                   <h2
-                    className="mt-5 font-display font-semibold leading-[1.04] text-[clamp(32px,4vw,56px)]"
+                    className="pz-anim font-display font-semibold leading-[1.04] text-[clamp(28px,3.4vw,48px)]"
                     style={{ letterSpacing: "-0.02em" }}
                   >
-                    {activeProduct.tagline}
+                    What's actually in the box
                   </h2>
+                  <p
+                    className="pz-anim max-w-[36rem] text-[14px] md:text-[15px] leading-relaxed"
+                    style={{ opacity: 0.85 }}
+                  >
+                    {activeProduct.engineering}
+                  </p>
                 </div>
-                <div className="self-end">
+                <div className="md:pt-[8vh]">
                   <h3
-                    className="font-mono text-[10px] uppercase tracking-[0.32em]"
+                    className="pz-anim font-mono text-[10px] uppercase tracking-[0.32em]"
                     style={{ opacity: 0.55 }}
                   >
                     Capabilities
@@ -854,7 +987,7 @@ export default function ProductExperience({
                     {activeProduct.features.map((feature, i) => (
                       <li
                         key={feature}
-                        className="flex items-center justify-between gap-6 py-4"
+                        className="pz-anim flex items-center justify-between gap-6 py-4"
                         style={{
                           borderBottomWidth: 1,
                           borderBottomStyle: "solid",
@@ -884,7 +1017,11 @@ export default function ProductExperience({
               </div>
             </section>
 
-            {/* ---- Panel 3: Image + applications + origin ---- */}
+            {/* ---- Panel 4: Image + applications + origin stat ----
+             * Image[1] of the gallery on the left; applications list +
+             * origin stat on the right. Notably DOES NOT re-use the
+             * main hero photo. For products without a real gallery
+             * (BESS), the image plate becomes a tonal placeholder. */}
             <section
               className="relative w-screen h-screen flex-shrink-0 flex items-center justify-center px-[8vw] font-body"
               style={{
@@ -892,22 +1029,45 @@ export default function ProductExperience({
                 color: textOn(activeProduct.descriptionBgColor),
               }}
             >
-              <div className="grid w-full max-w-[110rem] grid-cols-1 gap-12 md:grid-cols-2 md:gap-16 items-center">
-                <div
-                  className="relative h-[60vh] overflow-hidden"
-                  style={{ backgroundColor: activeProduct.leftColor }}
-                >
-                  <Image
-                    src={activeProduct.image}
-                    alt={activeProduct.title}
-                    fill
-                    sizes="50vw"
-                    className="object-contain p-10"
-                  />
-                </div>
+              <div className="grid w-full max-w-[110rem] grid-cols-1 gap-12 md:grid-cols-[1fr_1fr] md:gap-16 items-center">
+                {hasGallery ? (
+                  <div
+                    className="pz-anim relative h-[64vh] overflow-hidden"
+                    style={{ backgroundColor: activeProduct.leftColor }}
+                  >
+                    <Image
+                      src={activeProduct.gallery[1]}
+                      alt={`${activeProduct.title} — supporting view 2`}
+                      fill
+                      sizes="50vw"
+                      className="object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div
+                    className="pz-anim relative h-[64vh] flex flex-col items-start justify-end p-[clamp(24px,4vw,56px)] font-display"
+                    style={{
+                      backgroundColor: activeProduct.leftColor,
+                      color: textOn(activeProduct.leftColor),
+                    }}
+                  >
+                    <p
+                      className="font-mono text-[10px] uppercase tracking-[0.32em]"
+                      style={{ opacity: 0.65 }}
+                    >
+                      {activeProduct.origin}
+                    </p>
+                    <span
+                      className="mt-2 text-[clamp(48px,6vw,96px)] font-bold tracking-[-0.03em] leading-[0.95]"
+                      style={{ opacity: 0.92 }}
+                    >
+                      {activeProduct.title}
+                    </span>
+                  </div>
+                )}
                 <div>
                   <h3
-                    className="font-mono text-[10px] uppercase tracking-[0.32em]"
+                    className="pz-anim font-mono text-[10px] uppercase tracking-[0.32em]"
                     style={{ opacity: 0.55 }}
                   >
                     Applications
@@ -916,7 +1076,7 @@ export default function ProductExperience({
                     {activeProduct.applications.map((app) => (
                       <li
                         key={app}
-                        className="flex items-baseline gap-3 text-[15px]"
+                        className="pz-anim flex items-baseline gap-3 text-[15px]"
                         style={{ opacity: 0.85 }}
                       >
                         <span
@@ -935,74 +1095,17 @@ export default function ProductExperience({
                   </ul>
                   <div className="mt-12">
                     <p
-                      className="font-mono text-[10px] uppercase tracking-[0.32em]"
+                      className="pz-anim font-mono text-[10px] uppercase tracking-[0.32em]"
                       style={{ opacity: 0.55 }}
                     >
                       Origin
                     </p>
                     <p
-                      className="mt-1 font-display font-bold leading-[0.92] text-[clamp(56px,7vw,112px)]"
+                      className="pz-anim mt-1 font-display font-bold leading-[0.92] text-[clamp(56px,7vw,112px)]"
                       style={{ letterSpacing: "-0.03em" }}
                     >
                       {activeProduct.year}
                     </p>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* ---- Panel 4: Gallery — two additional product images ----
-             * Sits between the spec/applications panel and the
-             * next-product handoff. Uses the product's `gallery` pair
-             * with the same description-bg surface and the leftColor
-             * as the image plate so the framing reads as a continuation
-             * of the previous panel. */}
-            <section
-              className="relative w-screen h-screen flex-shrink-0 flex items-center justify-center px-[8vw] font-body"
-              style={{
-                backgroundColor: activeProduct.descriptionBgColor,
-                color: textOn(activeProduct.descriptionBgColor),
-              }}
-            >
-              <div className="grid w-full max-w-[110rem] grid-cols-1 gap-8 md:grid-cols-2 md:gap-10">
-                <div className="flex flex-col gap-3">
-                  <p
-                    className="font-mono text-[10px] uppercase tracking-[0.32em]"
-                    style={{ opacity: 0.55 }}
-                  >
-                    Gallery — 01
-                  </p>
-                  <div
-                    className="relative h-[68vh] overflow-hidden"
-                    style={{ backgroundColor: activeProduct.leftColor }}
-                  >
-                    <Image
-                      src={activeProduct.gallery[0]}
-                      alt={`${activeProduct.title} — additional view 1`}
-                      fill
-                      sizes="50vw"
-                      className="object-cover"
-                    />
-                  </div>
-                </div>
-                <div className="flex flex-col gap-3">
-                  <p
-                    className="font-mono text-[10px] uppercase tracking-[0.32em]"
-                    style={{ opacity: 0.55 }}
-                  >
-                    Gallery — 02
-                  </p>
-                  <div
-                    className="relative h-[68vh] overflow-hidden"
-                    style={{ backgroundColor: activeProduct.leftColor }}
-                  >
-                    <Image
-                      src={activeProduct.gallery[1]}
-                      alt={`${activeProduct.title} — additional view 2`}
-                      fill
-                      sizes="50vw"
-                      className="object-cover"
-                    />
                   </div>
                 </div>
               </div>
