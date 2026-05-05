@@ -13,9 +13,13 @@
  * reset cleanly. Trying to swap the products array in-place would
  * leave behind stale ScrollTriggers and pin spacers sized for the
  * previous catalog's N.
+ *
+ * Per-category memory: the last-viewed product index per category is
+ * tracked here, so swapping from Generators → BESS → Generators lands
+ * back on the same generator the user was looking at.
  * -------------------------------------------------------------------------- */
 
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   bessProducts,
   products as generators,
@@ -36,6 +40,20 @@ const CATEGORIES: ReadonlyArray<{
 export default function ProductsRoot() {
   const [categoryId, setCategoryId] = useState<string>(CATEGORIES[0].id);
   const active = CATEGORIES.find((c) => c.id === categoryId) ?? CATEGORIES[0];
+
+  // Per-category memory of the last-visible product index. A ref (not
+  // state) so updates don't trigger a re-render of ProductsRoot — only
+  // the next mount of ProductExperience reads it.
+  const memoryRef = useRef<Record<string, number>>({});
+
+  const handleActiveChange = useCallback(
+    (idx: number) => {
+      memoryRef.current[categoryId] = idx;
+    },
+    [categoryId],
+  );
+
+  const initialIdx = memoryRef.current[categoryId] ?? 0;
 
   return (
     <>
@@ -74,7 +92,12 @@ export default function ProductsRoot() {
        * when the active catalog changes. */}
       <ProductNav key={`nav-${categoryId}`} products={active.items} />
 
-      <ProductExperience key={categoryId} products={active.items} />
+      <ProductExperience
+        key={categoryId}
+        products={active.items}
+        initialIdx={initialIdx}
+        onActiveChange={handleActiveChange}
+      />
     </>
   );
 }

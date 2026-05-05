@@ -32,6 +32,9 @@ export type Product = {
    * click choreography). Typically the lightest tone in the product's
    * palette so the description copy reads as black-on-paper. */
   descriptionBgColor: string;
+  /** Two additional product images shown in the gallery panel inside
+   * the detail experience. */
+  gallery: [string, string];
   origin: string;
   tagline: string;
   overview: string;
@@ -65,6 +68,7 @@ export const products: Product[] = [
     leftColor: "#2f0000",
     rightColor: "#F4CCCC",
     descriptionBgColor: "#FFEEEE",
+    gallery: ["/images/fpt_product_2.avif", "/images/fpt_product_3.avif"],
     origin: "Italian Engineering",
     tagline: "Built on European precision",
     overview:
@@ -97,6 +101,10 @@ export const products: Product[] = [
     leftColor: "#101010",
     rightColor: "#D0D0D0",
     descriptionBgColor: "#FBFBFB",
+    gallery: [
+      "/images/perkins_product_2.avif",
+      "/images/perkins_product_3.avif",
+    ],
     origin: "British Engineering",
     tagline: "Built for durability and efficiency",
     overview:
@@ -129,6 +137,10 @@ export const products: Product[] = [
     leftColor: "#002000",
     rightColor: "#CCF0CC",
     descriptionBgColor: "#EEFFEE",
+    gallery: [
+      "/images/cummins_product_2.avif",
+      "/images/cummins_product_3.avif",
+    ],
     origin: "American Power",
     tagline: "American muscle, global reliability",
     overview:
@@ -160,6 +172,10 @@ export const products: Product[] = [
     leftColor: "#000022",
     rightColor: "#CCCCE0",
     descriptionBgColor: "#EEEEFF",
+    gallery: [
+      "/images/yuchai_product_2.jpeg",
+      "/images/yuchai_product_3.avif",
+    ],
     origin: "Chinese Manufacturing",
     tagline: "High value performance",
     overview:
@@ -198,10 +214,14 @@ export const bessProducts: Product[] = [
     subtitle: "High-Density Storage Module",
     category: "Energy Storage",
     year: "2025",
-    accentColor: "#234B5C",
-    leftColor: "#0F2A36",
-    rightColor: "#4F7A8A",
-    descriptionBgColor: "#EEF4F7",
+    accentColor: "#0F0F0F",
+    leftColor: "#0F0F0F",
+    rightColor: "#FAFAFA",
+    descriptionBgColor: "#000000",
+    gallery: [
+      "/images/battery_product_1.png",
+      "/images/battery_product_1.png",
+    ],
     origin: "Pakistan Engineered",
     tagline: "Modular density for every load profile",
     overview:
@@ -229,10 +249,14 @@ export const bessProducts: Product[] = [
     subtitle: "Battery Energy Storage System",
     category: "Storage System",
     year: "2025",
-    accentColor: "#3D5A40",
-    leftColor: "#1F2F22",
-    rightColor: "#739079",
-    descriptionBgColor: "#EFF4EF",
+    accentColor: "#1A1A1A",
+    leftColor: "#1A1A1A",
+    rightColor: "#F0F0F0",
+    descriptionBgColor: "#000000",
+    gallery: [
+      "/images/bess_product_1.png",
+      "/images/bess_product_1.png",
+    ],
     origin: "Pakistan Engineered",
     tagline: "Integrated cabinet for grid-edge storage",
     overview:
@@ -259,10 +283,14 @@ export const bessProducts: Product[] = [
     subtitle: "Bi-directional Power Conversion",
     category: "Power Electronics",
     year: "2025",
-    accentColor: "#7A4A1F",
-    leftColor: "#42260E",
-    rightColor: "#B58050",
-    descriptionBgColor: "#F6EFE8",
+    accentColor: "#252525",
+    leftColor: "#252525",
+    rightColor: "#E8E8E8",
+    descriptionBgColor: "#000000",
+    gallery: [
+      "/images/inverter_product_1.png",
+      "/images/inverter_product_1.png",
+    ],
     origin: "Pakistan Engineered",
     tagline: "DC-AC conversion at grid-stable quality",
     overview:

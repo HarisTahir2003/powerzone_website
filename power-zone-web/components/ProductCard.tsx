@@ -169,7 +169,7 @@ export default function ProductCard({
       aria-label={`Open ${currentProduct?.title ?? "product"} detail`}
       className="
         relative overflow-hidden cursor-pointer
-        w-[58vw] md:w-[35vw]
+        w-[58vw] md:w-[28vw]
         h-[17vh]
         rounded-[2px]
         ring-1 ring-white/10

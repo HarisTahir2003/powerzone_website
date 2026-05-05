@@ -70,7 +70,7 @@ const SHOWCASE_TRANSITION_VH = 220;
 const SHOWCASE_CYCLES = 30;
 const SHOWCASE_ST_ID = "pz-showcase";
 const DETAIL_ST_ID = "pz-detail";
-const DETAIL_PANELS = 4;
+const DETAIL_PANELS = 5;
 
 const EASE = "power3.inOut";
 const FAST_EASE = "power3.out";
@@ -83,24 +83,43 @@ type ProductExperienceProps = {
    * the component (typically via a `key` on the parent) so all the
    * ScrollTriggers, Lenis instance, and refs reset cleanly. */
   products: Product[];
+  /** Product index to land on at mount. Defaults to 0. Used by the
+   * parent (ProductsRoot) to remember which product the user was last
+   * viewing per category. */
+  initialIdx?: number;
+  /** Callback fired whenever the visible product changes — lets the
+   * parent persist a per-category memory across category switches. */
+  onActiveChange?: (idx: number) => void;
 };
 
 export default function ProductExperience({
   products,
+  initialIdx = 0,
+  onActiveChange,
 }: ProductExperienceProps) {
   const lenisRef = useLenis();
   const N = products.length;
+  const safeInitialIdx = Math.min(Math.max(initialIdx, 0), N - 1);
 
   const [phase, setPhase] = useState<Phase>("showcase");
-  const [activeIdx, setActiveIdx] = useState(0);
-  const [currentVisibleIdx, setCurrentVisibleIdx] = useState(0);
+  const [activeIdx, setActiveIdx] = useState(safeInitialIdx);
+  const [currentVisibleIdx, setCurrentVisibleIdx] = useState(safeInitialIdx);
 
   const phaseRef = useRef<Phase>("showcase");
-  const activeIdxRef = useRef(0);
-  const currentVisibleIdxRef = useRef(0);
+  const activeIdxRef = useRef(safeInitialIdx);
+  const currentVisibleIdxRef = useRef(safeInitialIdx);
   const transitioningRef = useRef(false);
   phaseRef.current = phase;
   activeIdxRef.current = activeIdx;
+
+  // Notify the parent every time the visible product changes so it can
+  // persist a per-category memory. Use a ref so the callback identity
+  // doesn't trigger re-renders here.
+  const onActiveChangeRef = useRef(onActiveChange);
+  onActiveChangeRef.current = onActiveChange;
+  useEffect(() => {
+    onActiveChangeRef.current?.(currentVisibleIdx);
+  }, [currentVisibleIdx]);
 
   // ---- Refs ---------------------------------------------------------------
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -495,7 +514,10 @@ export default function ProductExperience({
       const st = ScrollTrigger.getById(SHOWCASE_ST_ID);
       if (st) {
         const totalTransitions = N * SHOWCASE_CYCLES;
-        const targetProgress = nextIdx / totalTransitions;
+        // Land mid-pin so the user has room to scroll backward as
+        // well as forward through the modular wrap.
+        const targetT = Math.floor(SHOWCASE_CYCLES / 2) * N + nextIdx;
+        const targetProgress = targetT / totalTransitions;
         const targetScroll =
           st.start + targetProgress * (st.end - st.start);
         lenisRef.current?.scrollTo(targetScroll, {
@@ -535,6 +557,26 @@ export default function ProductExperience({
     const ctx = gsap.context(() => {
       gsap.set(detailLayerRef.current, { autoAlpha: 0 });
       setupShowcase();
+
+      // Land at the *middle* of the pin range, not the very start, so
+      // backward scrolling has room (the modular wrap means anywhere
+      // in the pin renders product `safeInitialIdx`, but only mid-pin
+      // gives the user roughly equal scroll distance both ways before
+      // they exit the trigger).
+      requestAnimationFrame(() => {
+        const st = ScrollTrigger.getById(SHOWCASE_ST_ID);
+        if (!st) return;
+        const totalTransitions = N * SHOWCASE_CYCLES;
+        const initialT =
+          Math.floor(SHOWCASE_CYCLES / 2) * N + safeInitialIdx;
+        const targetProgress = initialT / totalTransitions;
+        const targetScroll =
+          st.start + targetProgress * (st.end - st.start);
+        lenisRef.current?.scrollTo(targetScroll, {
+          immediate: true,
+          force: true,
+        });
+      });
     }, containerRef);
 
     return () => {
@@ -542,7 +584,7 @@ export default function ProductExperience({
       ScrollTrigger.getById(DETAIL_ST_ID)?.kill();
       ctx.revert();
     };
-  }, [setupShowcase]);
+  }, [setupShowcase, N, lenisRef, safeInitialIdx]);
 
   // -----------------------------------------------------------------------
   // PRODUCT NAV (top-right brand quick-links). Only meaningful in showcase.
@@ -909,7 +951,64 @@ export default function ProductExperience({
               </div>
             </section>
 
-            {/* ---- Panel 4: Next product hero (seamless handoff) ----
+            {/* ---- Panel 4: Gallery — two additional product images ----
+             * Sits between the spec/applications panel and the
+             * next-product handoff. Uses the product's `gallery` pair
+             * with the same description-bg surface and the leftColor
+             * as the image plate so the framing reads as a continuation
+             * of the previous panel. */}
+            <section
+              className="relative w-screen h-screen flex-shrink-0 flex items-center justify-center px-[8vw] font-body"
+              style={{
+                backgroundColor: activeProduct.descriptionBgColor,
+                color: textOn(activeProduct.descriptionBgColor),
+              }}
+            >
+              <div className="grid w-full max-w-[110rem] grid-cols-1 gap-8 md:grid-cols-2 md:gap-10">
+                <div className="flex flex-col gap-3">
+                  <p
+                    className="font-mono text-[10px] uppercase tracking-[0.32em]"
+                    style={{ opacity: 0.55 }}
+                  >
+                    Gallery — 01
+                  </p>
+                  <div
+                    className="relative h-[68vh] overflow-hidden"
+                    style={{ backgroundColor: activeProduct.leftColor }}
+                  >
+                    <Image
+                      src={activeProduct.gallery[0]}
+                      alt={`${activeProduct.title} — additional view 1`}
+                      fill
+                      sizes="50vw"
+                      className="object-cover"
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-col gap-3">
+                  <p
+                    className="font-mono text-[10px] uppercase tracking-[0.32em]"
+                    style={{ opacity: 0.55 }}
+                  >
+                    Gallery — 02
+                  </p>
+                  <div
+                    className="relative h-[68vh] overflow-hidden"
+                    style={{ backgroundColor: activeProduct.leftColor }}
+                  >
+                    <Image
+                      src={activeProduct.gallery[1]}
+                      alt={`${activeProduct.title} — additional view 2`}
+                      fill
+                      sizes="50vw"
+                      className="object-cover"
+                    />
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* ---- Panel 5: Next product hero (seamless handoff) ----
              * Renders the SAME visual as the showcase view of the next
              * product (left image full-bleed + right specs + center
              * card). When the user scrolls past this panel, the detail

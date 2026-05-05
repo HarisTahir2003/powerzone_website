@@ -52,22 +52,33 @@ const NAV_LINKS = [
   { label: 'Contact Us', href: '/contact' },
 ];
 
+const INTRO_SEEN_KEY = "pz:introSeen";
+
 export default function Home() {
-  const [hasPressed, setHasPressed] = useState(false);
-  const [hasLitUp, setHasLitUp] = useState(false);
-  const [videoEnded, setVideoEnded] = useState(false);
+  // Initialize all state to "intro complete" by default; on the first
+  // visit we override to false in a useEffect below. This lets us SSR
+  // a stable initial render and only deviate on the client where we can
+  // actually read sessionStorage. The trade-off is the very first paint
+  // shows the post-video hero for one frame before flipping back to the
+  // ignition state on a fresh visit; mitigated by `firstVisitChecked`
+  // which keeps everything hidden until we know.
+  const [firstVisitChecked, setFirstVisitChecked] = useState(false);
+  const [introSeen, setIntroSeen] = useState(true);
+  const [hasPressed, setHasPressed] = useState(true);
+  const [hasLitUp, setHasLitUp] = useState(true);
+  const [videoEnded, setVideoEnded] = useState(true);
   const [readings, setReadings] = useState({
-    power: 0,
-    voltage: 0,
-    ampere: 0,
+    power: READOUT_TARGET.power,
+    voltage: READOUT_TARGET.voltage,
+    ampere: READOUT_TARGET.ampere,
   });
   const [backupStatus, setBackupStatus] = useState<StatusLineState>({
-    state: 'STANDBY',
-    color: COLOR_AMBER,
+    state: 'ONLINE',
+    color: COLOR_GREEN,
   });
   const [autoStartStatus, setAutoStartStatus] = useState<StatusLineState>({
-    state: 'READY',
-    color: COLOR_AMBER,
+    state: 'COMPLETE',
+    color: COLOR_GREEN,
   });
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const breakerAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -75,8 +86,32 @@ export default function Home() {
   const dieselStoppedRef = useRef(false);
   const timersRef = useRef<number[]>([]);
 
+  // Decide whether to play the intro on this mount. If the user has
+  // never seen it (sessionStorage), reset to ignition-button state and
+  // let them press it; otherwise leave the post-video hero visible. The
+  // sessionStorage key is set once the video finishes (or once they hit
+  // the ignition button — we don't want to replay the whole sequence
+  // if they navigate away and come back mid-intro).
   useEffect(() => {
-    if (!hasLitUp) return;
+    if (typeof window === "undefined") return;
+    const seen = sessionStorage.getItem(INTRO_SEEN_KEY) === "true";
+    if (!seen) {
+      setIntroSeen(false);
+      setHasPressed(false);
+      setHasLitUp(false);
+      setVideoEnded(false);
+      setReadings({ power: 0, voltage: 0, ampere: 0 });
+      setBackupStatus({ state: "STANDBY", color: COLOR_AMBER });
+      setAutoStartStatus({ state: "READY", color: COLOR_AMBER });
+    }
+    setFirstVisitChecked(true);
+  }, []);
+
+  useEffect(() => {
+    // Skip the play call entirely once the intro has been seen — the
+    // video element renders only as a static poster background in that
+    // case (see the conditional `src` and `preload` on the <video>).
+    if (!hasLitUp || introSeen) return;
     const video = videoRef.current;
     if (!video) return;
 
@@ -88,7 +123,7 @@ export default function Home() {
         );
       });
     }
-  }, [hasLitUp]);
+  }, [hasLitUp, introSeen]);
 
   useEffect(() => {
     const breaker = new Audio(BREAKER_SFX);
@@ -163,6 +198,14 @@ export default function Home() {
     if (hasPressed) return;
     setHasPressed(true);
 
+    // Once the user pulls the trigger we consider the intro "seen" —
+    // bouncing to /products and back shouldn't replay it.
+    try {
+      sessionStorage.setItem(INTRO_SEEN_KEY, "true");
+    } catch {
+      /* sessionStorage unavailable — non-fatal */
+    }
+
     breakerAudioRef.current?.play().catch(() => {
       console.warn('PowerZone intro: breaker sound blocked by browser.');
     });
@@ -190,6 +233,13 @@ export default function Home() {
     );
     timersRef.current.push(handoff);
   };
+
+  // Render-gate. While `firstVisitChecked` is false we don't yet know
+  // whether to play the intro or skip to the post-video hero — show a
+  // black screen so the wrong state doesn't flash for a frame.
+  if (!firstVisitChecked) {
+    return <div className="w-screen h-screen bg-black" />;
+  }
 
   return (
     <>
@@ -222,11 +272,11 @@ export default function Home() {
               initial={false}
               animate={{ opacity: hasPressed ? 1 : 0 }}
               transition={{ duration: 1.5, ease: 'easeOut' }}
-              className="pointer-events-none absolute left-10 top-10 z-30 h-32 w-auto select-none"
+              className="pointer-events-none absolute left-[clamp(16px,2.5vw,40px)] top-[clamp(16px,2.5vw,40px)] z-30 h-[clamp(72px,11vh,128px)] w-auto select-none"
             />
 
             {/* Top-right grid status */}
-            <div className="absolute right-10 top-12 z-30 flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.3em]">
+            <div className="absolute right-[clamp(16px,2.5vw,40px)] top-[clamp(20px,2.8vh,48px)] z-30 flex items-center gap-3 font-mono text-[clamp(9px,1.1vh,11px)] uppercase tracking-[0.3em]">
               <span
                 aria-hidden
                 className="inline-block h-2.5 w-2.5 rounded-full"
@@ -239,7 +289,7 @@ export default function Home() {
             </div>
 
             {/* Ignition button + readout panel */}
-            <div className="absolute inset-0 flex items-center justify-center gap-20">
+            <div className="absolute inset-0 flex items-center justify-center gap-[clamp(32px,8vw,80px)]">
               <IgnitionButton
                 onPress={handleIgnition}
                 disabled={hasPressed}
@@ -252,7 +302,7 @@ export default function Home() {
             </div>
 
             {/* Bottom-center status lines */}
-            <div className="absolute bottom-28 left-1/2 z-30 -translate-x-1/2 space-y-2.5">
+            <div className="absolute bottom-[clamp(72px,12vh,112px)] left-1/2 z-30 -translate-x-1/2 space-y-2.5">
               <StatusLine
                 label="Grid Supply"
                 state="FAILED"
@@ -271,7 +321,7 @@ export default function Home() {
             </div>
 
             {/* Footer */}
-            <div className="absolute bottom-8 left-1/2 z-30 -translate-x-1/2 font-mono text-[10px] uppercase tracking-[0.3em] text-white/25">
+            <div className="absolute bottom-[clamp(20px,3.5vh,32px)] left-1/2 z-30 -translate-x-1/2 font-mono text-[clamp(8px,1vh,10px)] uppercase tracking-[0.3em] text-white/25">
               Power Zone Emergency Management System v2.4
             </div>
           </motion.div>
@@ -289,14 +339,26 @@ export default function Home() {
               ref={videoRef}
               className="absolute inset-0 w-full h-full object-cover [transition:opacity_1200ms_ease-out]"
               style={{ opacity: videoEnded ? 0.2 : 1 }}
-              src="/poweron.mp4"
+              // Skip the video source entirely once the intro has been
+              // seen — the <video> renders just the poster as a static
+              // background, which matches the post-intro hero state.
+              src={introSeen ? undefined : "/poweron.mp4"}
               poster="/images/intro-poster.jpg"
               muted
               playsInline
-              autoPlay
-              preload="auto"
+              autoPlay={!introSeen}
+              preload={introSeen ? "none" : "auto"}
               onTimeUpdate={handleVideoTimeUpdate}
-              onEnded={() => setVideoEnded(true)}
+              onEnded={() => {
+                setVideoEnded(true);
+                // Persist for the rest of the session so navigating away
+                // and back to "/" doesn't replay the ignition + video.
+                try {
+                  sessionStorage.setItem(INTRO_SEEN_KEY, "true");
+                } catch {
+                  /* sessionStorage unavailable — non-fatal */
+                }
+              }}
             />
 
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -304,7 +366,7 @@ export default function Home() {
               src={LOGO_ON_DARK}
               alt="PowerZone"
               draggable={false}
-              className="pointer-events-none absolute left-8 top-4 z-40 h-16 w-auto select-none drop-shadow-[0_2px_10px_rgba(0,0,0,0.75)]"
+              className="pointer-events-none absolute left-[clamp(12px,2vw,32px)] top-[clamp(8px,1.5vh,20px)] z-40 h-[clamp(40px,6vh,72px)] w-auto select-none drop-shadow-[0_2px_10px_rgba(0,0,0,0.75)]"
             />
 
             {videoEnded && (
@@ -422,7 +484,7 @@ function IgnitionButton({
         src={BUTTON_IMG}
         alt=""
         draggable={false}
-        className="pointer-events-none h-52 w-auto select-none drop-shadow-[0_10px_30px_rgba(220,38,38,0.28)]"
+        className="pointer-events-none h-[clamp(140px,26vh,208px)] w-auto select-none drop-shadow-[0_10px_30px_rgba(220,38,38,0.28)]"
       />
     </motion.button>
   );
@@ -439,7 +501,7 @@ function ReadoutPanel({
 }) {
   return (
     <div
-      className="relative px-10 py-7 font-mono"
+      className="relative px-[clamp(20px,3vw,40px)] py-[clamp(14px,2.5vh,28px)] font-mono"
       style={{
         border: `1px solid ${COLOR_AMBER}66`,
         boxShadow: `0 0 26px ${COLOR_AMBER}14, inset 0 0 24px rgba(0, 0, 0, 0.35)`,
@@ -466,7 +528,7 @@ function ReadoutRow({
 }) {
   return (
     <div
-      className={`flex items-baseline justify-between gap-14 ${
+      className={`flex items-baseline justify-between gap-[clamp(28px,5vw,56px)] ${
         last ? '' : 'mb-5'
       }`}
     >
@@ -478,7 +540,7 @@ function ReadoutRow({
       </span>
       <div className="flex items-baseline gap-2">
         <span
-          className="text-3xl font-bold tabular-nums"
+          className="text-[clamp(20px,3.6vh,30px)] font-bold tabular-nums"
           style={{
             color: COLOR_AMBER,
             textShadow: `0 0 14px ${COLOR_AMBER}66`,
@@ -507,7 +569,7 @@ function StatusLine({
   color: string;
 }) {
   return (
-    <div className="flex w-[460px] items-center gap-4 font-mono text-[11px] uppercase tracking-[0.22em]">
+    <div className="flex w-[clamp(280px,38vw,460px)] items-center gap-4 font-mono text-[11px] uppercase tracking-[0.22em]">
       <span
         aria-hidden
         className="inline-block h-2.5 w-2.5 shrink-0"

@@ -40,9 +40,19 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      // Suppresses the React hydration warning when browser extensions
+      // (Grammarly, Qbasis, password managers, etc.) inject attributes
+      // onto the <html>/<body> before hydration. The mismatch is in
+      // those extension-added attributes, not in our markup.
+      suppressHydrationWarning
       className={`${display.variable} ${body.variable} ${mono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col font-body">{children}</body>
+      <body
+        suppressHydrationWarning
+        className="min-h-full flex flex-col font-body"
+      >
+        {children}
+      </body>
     </html>
   );
 }
